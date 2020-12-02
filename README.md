@@ -1,6 +1,6 @@
 # silnik_app
 
-A new Flutter project.
+Aplikacja web Flutter do badania silnika asynchronicznego. Projekt PBL 2020
 
 ## Getting Started
 
