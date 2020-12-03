@@ -3,29 +3,48 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:silnik_app/api/models/lab.dart';
+import 'package:silnik_app/pages/base_scaffold.dart';
 
-import 'api/stat_model.dart';
+import '../api/models/stat_value.dart';
+import '../lists.dart';
 
-class HomePage extends StatefulWidget {
-  HomePage({Key key}) : super(key: key);
+class MainLabPage extends StatelessWidget{
+  int id;
+
+  MainLabPage(this.id);
+
+  Widget getLabsPage(int id) {
+    for (Lab lab in Lists.labs) {
+      if (lab.id == id) {
+        return MainLabView(lab);
+      }
+    }
+  }
 
   @override
-  _HomePageState createState() => _HomePageState();
+  Widget build(BuildContext context) {
+    return getLabsPage(id);
+  }
 }
 
-class _HomePageState extends State<HomePage> {
+class MainLabView extends StatefulWidget {
+
+  Lab lab;
+  MainLabView(this.lab, {Key key}) : super(key: key);
+
+
+  @override
+  _MainLabViewState createState() => _MainLabViewState(lab);
+}
+
+class _MainLabViewState extends State<MainLabView> {
+
+  Lab lab;
+  _MainLabViewState(this.lab);
+
   TextTheme textTheme;
   bool isMacroRunning = false;
-
-  List<StatValueModel> statsList = [
-    StatValueModel(symbol: "U", desc: "Napięcie", value: 1.35, unit: "V"),
-    StatValueModel(symbol: "f", desc: "Częstotliwość", value: 50, unit: "Hz"),
-    StatValueModel(symbol: "P", desc: "Moc", value: 10, unit: "W"),
-    StatValueModel(symbol: "n", desc: "Prędkość obrotowa", value: 1000, unit: "rpm", precision: 0),
-    StatValueModel(symbol: "Is", symbolSubscriptIndex: 1, desc: "Prąd w uzwojeniu stojana", value: 2, unit: "A"),
-    StatValueModel(symbol: "Iw", symbolSubscriptIndex: 1, desc: "Prąd w uzwojeniu wirnika", value: 2, unit: "A"),
-    StatValueModel(symbol: "T", desc: "Moment obciążenia", value: 15, unit: "Nm"),
-  ];
 
   Map<String, TextEditingController> statValueChangeTextController = new Map();
 
@@ -43,7 +62,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void initState() {
-    statsList.forEach((element) {
+    Lists.statsList.forEach((element) {
       statValueChangeTextController[element.symbol] = TextEditingController();
       statValueChangeTextController[element.symbol].text = element.value.toString();
 
@@ -76,7 +95,7 @@ class _HomePageState extends State<HomePage> {
 
   void changeData() {
     macrosDone+=1;
-    statsList.forEach((element) {
+    Lists.statsList.forEach((element) {
       if (macroChangeControllerValue[element.symbol].text != null &&
           macroChangeControllerValue[element.symbol].text != "")
         setState(() {
@@ -108,7 +127,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void fetchData() {
-    statsList.forEach((element) {
+    Lists.statsList.forEach((element) {
         setState(() {
           element.value = Random().nextDouble();
         });
@@ -116,7 +135,7 @@ class _HomePageState extends State<HomePage> {
   }
 
 
-  Widget statValue(StatValueModel stat) {
+  Widget statValue(StatValue stat) {
     return Row(
       children: [
         Expanded(
@@ -127,22 +146,6 @@ class _HomePageState extends State<HomePage> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
-                  // Expanded(
-                  //   child: SelectableText.rich(
-                  //     TextSpan(children: [
-                  //       TextSpan(
-                  //           text: stat.desc,
-                  //           style: textTheme.headline6),
-                  //       TextSpan(text: " "),
-                  //       TextSpan(text: stat.symbol.substring(0,stat.symbolSubscriptIndex ?? stat.symbol.length), style: textTheme.headline6),
-                  //       TextSpan(
-                  //         text: stat.symbolSubscriptIndex !=null ? stat.symbol.substring(stat.symbolSubscriptIndex) : "",
-                  //         style: textTheme.headline6.copyWith(fontSize: textTheme.headline6.fontSize * 0.8),
-                  //       )
-                  //     ]),
-                  //     textAlign: TextAlign.center,
-                  //   ),
-                  // ),
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.only(top: 4.0),
@@ -174,7 +177,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget customTextField({StatValueModel stat, TextEditingController controller,
+  Widget customTextField({StatValue stat, TextEditingController controller,
     bool enabled, String suffixText, String prefixText, String labelText,
     bool showButton = true, bool enableNegative = true,
     bool biggerThantZeroValidation = false}) {
@@ -339,7 +342,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget customTextFieldMacro({StatValueModel stat, TextEditingController controller,
+  Widget customTextFieldMacro({StatValue stat, TextEditingController controller,
     bool enabled, String suffixText, String prefixText}) {
 
     return Padding(
@@ -405,7 +408,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget changeValuesCard(StatValueModel stat) {
+  Widget changeValuesCard(StatValue stat) {
     return Row(
       children: [
         Expanded(
@@ -434,7 +437,7 @@ class _HomePageState extends State<HomePage> {
                                   : () {
                                 if (_changeValuesCardKey.currentState.validate())
                                   setState(() {
-                                    statsList.firstWhere((element) => element.symbol == stat.symbol).value =
+                                    Lists.statsList.firstWhere((element) => element.symbol == stat.symbol).value =
                                         double.parse(statValueChangeTextController[stat.symbol].text);
                                   });
                               },
@@ -461,7 +464,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget changeValuesPeriodicallyCard(StatValueModel stat) {
+  Widget changeValuesPeriodicallyCard(StatValue stat) {
     return Row(
       children: [
         Expanded(
@@ -557,41 +560,47 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     textTheme = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Container(
-              child: Wrap(
-                spacing: 2,
-                runSpacing: 2,
-                children: statsList.map((e) => statValue(e)).toList(),
-              ),
-            ),
-          ),
-          Expanded(
-            child: Column(
-                children: [
-                  fetchDataCard(),
-                  Column(
-                      children: statsList
-                          .where((x) => x.symbol == "f")
-                          .map((e) => changeValuesCard(e))
-                          .toList(),
+    return SilnikScaffold.get(
+        context,
+        appBar: SilnikScaffold.appBar(context, actions: [
+          new Text(lab.name, style: textTheme.subtitle1.copyWith(color: Colors.white))
+        ]),
+        body: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Container(
+                  child: Wrap(
+                    spacing: 2,
+                    runSpacing: 2,
+                    children: Lists.statsList.map((e) => statValue(e)).toList(),
                   ),
-                  Column(
-                    children: statsList
-                        .where((x) => x.symbol == "f")
-                        .map((e) => changeValuesPeriodicallyCard(e))
-                        .toList(),
-                  )
-                ]
-            ),
-          )
-        ],
-      ),
+                ),
+              ),
+              Expanded(
+                child: Column(
+                    children: [
+                      fetchDataCard(),
+                      Column(
+                        children: Lists.statsList
+                            .where((x) => x.symbol == "f")
+                            .map((e) => changeValuesCard(e))
+                            .toList(),
+                      ),
+                      Column(
+                        children: Lists.statsList
+                            .where((x) => x.symbol == "f")
+                            .map((e) => changeValuesPeriodicallyCard(e))
+                            .toList(),
+                      )
+                    ]
+                ),
+              )
+            ],
+          ),
+        )
     );
   }
 }

@@ -1,4 +1,8 @@
-class StatValueModel {
+import 'package:json_annotation/json_annotation.dart';
+part 'stat_value.g.dart';
+
+@JsonSerializable()
+class StatValue {
   String symbol;
   int symbolSubscriptIndex;
   String symbolSuperscript;
@@ -7,7 +11,7 @@ class StatValueModel {
   String unit;
   int precision;
 
-  StatValueModel(
+  StatValue(
       {this.symbol,
         this.symbolSubscriptIndex,
         this.symbolSuperscript,
@@ -15,4 +19,10 @@ class StatValueModel {
         this.value,
         this.precision = 3,
         this.unit});
+
+  factory StatValue.fromJson(Map<String, dynamic> json) => _$StatValueFromJson(json);
+  Map<String, dynamic> toJson() => _$StatValueToJson(this);
 }
+
+
+
