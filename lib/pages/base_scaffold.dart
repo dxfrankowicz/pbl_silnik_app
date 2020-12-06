@@ -8,6 +8,11 @@ class SilnikScaffold {
     _scaffoldKey = value;
   }
 
+  ScrollController _controller = ScrollController();
+  void scrollCallBack(DragUpdateDetails dragUpdate) {
+      _controller.position.moveTo(dragUpdate.globalPosition.dy * 3.5);
+  }
+
   static GlobalKey<ScaffoldState> get scaffoldKey => _scaffoldKey;
 
   static Widget get(BuildContext context,

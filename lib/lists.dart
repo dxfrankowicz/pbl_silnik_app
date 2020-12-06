@@ -1,5 +1,6 @@
 import 'api/models/lab.dart';
 import 'api/models/stat_value.dart';
+import 'api/models/task.dart';
 
 class Lists{
 
@@ -17,5 +18,10 @@ class Lists{
     Lab(1, "Laboratorium ip", DateTime.now(), null),
     Lab(2, "Laboratorium testowe", DateTime.now().add(Duration(days: 1)), null),
     Lab(3, "Laboratorium zip", DateTime.now().subtract(Duration(days: 7)), null),
+  ];
+
+  static List<Task> tasksLab1 = [
+    Task(1, "Ćwiczenie numer 1", null, null, labs[0]),
+    Task(2, "Ćwiczenie numer 2", null, null, labs[0]),
   ];
 }

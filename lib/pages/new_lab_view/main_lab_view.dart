@@ -4,35 +4,16 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:silnik_app/api/models/lab.dart';
+import 'package:silnik_app/api/models/task.dart';
 import 'package:silnik_app/pages/base_scaffold.dart';
-
-import '../api/models/stat_value.dart';
-import '../lists.dart';
-
-class MainLabPage extends StatelessWidget{
-  int id;
-
-  MainLabPage(this.id);
-
-  Widget getLabsPage(int id) {
-    for (Lab lab in Lists.labs) {
-      if (lab.id == id) {
-        return MainLabView(lab);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return getLabsPage(id);
-  }
-}
+import 'package:silnik_app/utils/date_utils.dart';
+import 'package:silnik_app/utils/toast_utils.dart';
+import '../../api/models/stat_value.dart';
+import '../../lists.dart';
 
 class MainLabView extends StatefulWidget {
-
   Lab lab;
   MainLabView(this.lab, {Key key}) : super(key: key);
-
 
   @override
   _MainLabViewState createState() => _MainLabViewState(lab);
@@ -60,6 +41,13 @@ class _MainLabViewState extends State<MainLabView> {
   TextEditingController fetchDataIntervalController = TextEditingController(text: 1.toString());
   final _fetchDataIntervalFormKey = GlobalKey<FormState>();
 
+  Timer _labDuration;
+  bool addNewTaskTextField = true;
+
+  //tasks
+  List<Task> tasks = new List();
+  Task chosenTask;
+
   @override
   void initState() {
     Lists.statsList.forEach((element) {
@@ -71,7 +59,20 @@ class _MainLabViewState extends State<MainLabView> {
     });
     macroChangeControllerTime.text = 10.toString();
     super.initState();
+    if(lab.id==1)
+      tasks = Lists.tasksLab1;
+
+    if(tasks!=null && tasks.isNotEmpty)
+      chosenTask = tasks.first;
+    else
+      addNewTaskTextField = tasks.isEmpty;
+
+    _labDuration = Timer.periodic(Duration(seconds: 1), (t) {
+      setState(() {});
+    });
   }
+
+
 
   Timer _timer;
   int macrosDone = 0;
@@ -556,6 +557,114 @@ class _MainLabViewState extends State<MainLabView> {
       ],
     );
   }
+  
+  Widget labAndTaskDetailsCard() {
+    return Row(
+      children: [
+        Expanded(
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 15.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                SelectableText("Laboratorium: ", style: textTheme.subtitle1),
+                                Expanded(child: SelectableText(lab.name, style: textTheme.subtitle1.copyWith(fontWeight: FontWeight.bold)))
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      SelectableText("Zadanie: ", style: textTheme.subtitle1),
+                                      Expanded(
+                                        child: Row(
+                                          children: [
+                                            tasks == null || tasks.isEmpty  ?  Container() :  Expanded(
+                                              child: FlatButton(
+                                                onPressed: (){},
+                                                child: DropdownButton<Task>(
+                                                  value: chosenTask,
+                                                  underline: Container(),
+                                                  isExpanded: true,
+                                                  items: tasks.map((e){
+                                                    return DropdownMenuItem(
+                                                      child: Text(e.name, style: textTheme.subtitle1.copyWith(fontWeight: FontWeight.bold)),
+                                                      value: e,
+                                                    );
+                                                  }).toList(),
+                                                  onChanged: (value) {
+                                                    setState(() {
+                                                      if (value.id != chosenTask.id) {
+                                                        chosenTask = value;
+                                                        ToastUtils.showToast("Wybrane ćwiczenie: ${chosenTask.name}");
+                                                      }
+                                                    });
+                                                  },
+                                                ),
+                                              ),
+                                            ),
+                                            Container(
+                                                margin: EdgeInsets.all(8),
+                                                child: IconButton(
+                                                    icon: Icon(Icons.add_circle),
+                                                    onPressed: (){
+                                                      _showAddTaskDialog();
+                                                    },
+                                                    tooltip: "Dodaj nowe ćwiczenie")
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Column(
+                        children: [
+                          Row(
+                            children: [
+                              SelectableText("Czas trwania", style: textTheme.caption),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              SelectableText(Duration(seconds: _labDuration.tick).toString().split('.').first.padLeft(8, "0"), style: textTheme.subtitle1),
+                            ],
+                          )
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        )
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -563,45 +672,181 @@ class _MainLabViewState extends State<MainLabView> {
     return SilnikScaffold.get(
         context,
         appBar: SilnikScaffold.appBar(context, actions: [
-          new Text(lab.name, style: textTheme.subtitle1.copyWith(color: Colors.white))
-        ]),
-        body: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Container(
-                  child: Wrap(
-                    spacing: 2,
-                    runSpacing: 2,
-                    children: Lists.statsList.map((e) => statValue(e)).toList(),
-                  ),
-                ),
+          Container(
+            padding: const EdgeInsets.all(8.0),
+            child: Container(
+              width: MediaQuery.of(context).size.width/4,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  new SelectableText("Data rozpoczęcia", style: textTheme.subtitle2.copyWith(color: Colors.white)),
+                  new SelectableText(DateUtils.formatDateTime(context, lab.date), style: textTheme.subtitle1.copyWith(color: Colors.white))
+                ],
               ),
-              Expanded(
-                child: Column(
-                    children: [
-                      fetchDataCard(),
-                      Column(
-                        children: Lists.statsList
-                            .where((x) => x.symbol == "f")
-                            .map((e) => changeValuesCard(e))
-                            .toList(),
+            ),
+          ),
+        ]),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(8.0),
+          child: Column(
+            children: [
+              labAndTaskDetailsCard(),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Container(
+                      child: Wrap(
+                        spacing: 2,
+                        runSpacing: 2,
+                        children: Lists.statsList.map((e) => statValue(e)).toList(),
                       ),
-                      Column(
-                        children: Lists.statsList
-                            .where((x) => x.symbol == "f")
-                            .map((e) => changeValuesPeriodicallyCard(e))
-                            .toList(),
-                      )
-                    ]
-                ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                        children: [
+                          fetchDataCard(),
+                          Column(
+                            children: Lists.statsList
+                                .where((x) => x.symbol == "f")
+                                .map((e) => changeValuesCard(e))
+                                .toList(),
+                          ),
+                          Column(
+                            children: Lists.statsList
+                                .where((x) => x.symbol == "f")
+                                .map((e) => changeValuesPeriodicallyCard(e))
+                                .toList(),
+                          )
+                        ]
+                    ),
+                  )
+                ],
+              ),
+            ],
+          )
+        )
+    );
+  }
+
+  TextEditingController labNameController;
+  _showAddTaskDialog() async {
+    _showDialogLoadCreatedTask() async {
+      await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              contentPadding: const EdgeInsets.all(16.0),
+              content: new Row(
+                children: <Widget>[
+                  new Expanded(
+                      child: Text("Wczytać dodane ćwiczenie?"))
+                ],
+              ),
+              actions: <Widget>[
+                new FlatButton(
+                    child: Row(
+                      children: [
+                        Icon(Icons.clear, color: Colors.red),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Text("Nie".toUpperCase(),
+                              style:
+                                  textTheme.button.copyWith(color: Colors.red)),
+                        )
+                      ],
+                    ),
+                    onPressed: () {
+                      Navigator.pop(context, false);
+                    }),
+                new FlatButton(
+                    child: Row(
+                      children: [
+                        Icon(Icons.check, color: Colors.black),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Text("Tak".toUpperCase(),
+                              style: textTheme.button
+                                  .copyWith(color: Colors.black)),
+                        )
+                      ],
+                    ),
+                    onPressed:() {
+                            Navigator.pop(context, true);
+                    })
+              ],
+            );
+          }).then((value) {
+        if (value != null && value) {
+          chosenTask = tasks.last;
+          ToastUtils.showToast("Wybrane ćwiczenie: ${chosenTask.name}");
+        }
+      });
+    }
+
+    labNameController = TextEditingController(text: "Nowe ćwiczenie".toString());
+    await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context){
+        return AlertDialog(
+          contentPadding: const EdgeInsets.all(16.0),
+          content: new Row(
+            children: <Widget>[
+              new Expanded(
+                child: TextFormField(
+                  maxLines: 1,
+                  textAlign: TextAlign.left,
+                  autofocus: false,
+                  decoration: InputDecoration(
+                      labelText: "Podaj tytuł nowego ćwiczenia" ?? "",
+                      border: OutlineInputBorder()),
+                  controller: labNameController,
+                )
               )
             ],
           ),
-        )
-    );
+          actions: <Widget>[
+            new FlatButton(
+                child: Row(
+                  children: [
+                    Icon(Icons.clear, color: Colors.red),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                      child: Text("Anuluj".toUpperCase(), style: textTheme.button.copyWith(color: Colors.red)),
+                    )
+                  ],
+                ),
+                onPressed: () {
+                  Navigator.pop(context, false);
+                }),
+            new FlatButton(
+                child: Row(
+                  children: [
+                    Icon(Icons.add, color: Colors.black),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                      child: Text("Utwórz".toUpperCase(), style: textTheme.button.copyWith(color: Colors.black)),
+                    )
+                  ],
+                ),
+                onPressed: labNameController.value.text!="" ? () {
+                  Navigator.pop(context, true);
+                  } : null)
+          ],
+        );
+      }
+    ).then((value){
+      if(value!=null && value) {
+        tasks.add(Task(tasks.length + 1, labNameController.value.text, null, null, lab));
+        labNameController.clear();
+        if (tasks.length == 1) {
+          chosenTask = tasks.first;
+          ToastUtils.showToast("Wybrane ćwiczenie: ${chosenTask.name}");
+        }
+        else _showDialogLoadCreatedTask();
+      }
+    });
   }
 }
 

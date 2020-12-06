@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:silnik_app/api/models/lab.dart';
-import 'package:silnik_app/pages/main_lab_view.dart';
 import 'package:silnik_app/utils/date_utils.dart';
-import 'package:silnik_app/utils/navigation_utils.dart';
 
 import '../lists.dart';
 import 'base_scaffold.dart';
@@ -32,14 +30,13 @@ class _LabChooserState extends State<LabChooser> {
     newLab = new Lab.empty();
     labNameController = new TextEditingController();
     newLab.date = DateTime.now();
-    newLab.id = labs.fold<int>(0, (max, e) => e.id > max ? e.id : max)+1;
     initializeDateFormatting();
   }
 
 
 
   List<Lab> getLabsList(){
-    labs.sort((a, b) => b.date.compareTo(a.date));
+    labs = Lists.labs;
     if(dateRange.first!=null && dateRange.last!=null){
       return labs.where((d) => d.date.isAfter(dateRange.first) && d.date.isBefore(dateRange.last.add(Duration(days: 1)))).toList();
     }
@@ -52,6 +49,11 @@ class _LabChooserState extends State<LabChooser> {
     else
       return labs;
   }
+
+  List<Lab> getSortedByDateLabsList(){
+    return getLabsList()..sort((a, b) => b.date.compareTo(a.date));
+  }
+
 
   Widget labsList() {
     return Row(
@@ -100,7 +102,7 @@ class _LabChooserState extends State<LabChooser> {
                                             : ""),
                                         decoration: InputDecoration(
                                             border: OutlineInputBorder(),
-                                            labelText: "Od"
+                                            labelText: "Sortuj od dnia"
                                         ),
                                       ),
                                     ),
@@ -151,7 +153,7 @@ class _LabChooserState extends State<LabChooser> {
                     padding: EdgeInsets.only(top: 8),
                     child: ListView(
                       shrinkWrap: true,
-                      children: getLabsList().map((l){
+                      children: getSortedByDateLabsList().map((l){
                         return FlatButton(
                           onPressed: (){
                             Navigator.of(context).pushNamed(
@@ -211,74 +213,6 @@ class _LabChooserState extends State<LabChooser> {
                             ],
                           ),
                         ),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: FlatButton(
-                                padding: EdgeInsets.all(0),
-                                onPressed: (){
-                                  showDatePicker(
-                                      context: context,
-                                      initialDate: newLab.date ?? DateTime.now(),
-                                      firstDate: DateTime(2000),
-                                      lastDate: DateTime.now().add(Duration(days: 1000))
-                                  ).then((DateTime value){
-                                    if(value!=null){
-                                      setState(() {
-                                        newLab.date = value;
-                                      });
-                                    }
-                                  });
-                                },
-                                child: TextField(
-                                  readOnly: true,
-                                  enabled: false,
-                                  controller: TextEditingController(text: newLab.date!=null
-                                      ? DateUtils.formatDateYMD(context, newLab.date)
-                                      : ""),
-                                  decoration: InputDecoration(
-                                      border: OutlineInputBorder(),
-                                      labelText: "Data"
-                                  ),
-                                ),
-                              ),
-                            ),
-                            SizedBox(width: 10),
-                            Expanded(
-                              child: FlatButton(
-                                padding: EdgeInsets.all(0),
-                                onPressed: (){
-                                  showTimePicker(
-                                      context: context,
-                                      initialTime: TimeOfDay.now(),
-                                  ).then((value){
-                                    if(value!=null){
-                                      setState(() {
-                                        newLab.date = DateTime(
-                                            newLab.date.year,
-                                            newLab.date.month,
-                                            newLab.date.day,
-                                            value.hour,
-                                            value.minute);
-                                      });
-                                    }
-                                  });
-                                },
-                                child: TextField(
-                                  readOnly: true,
-                                  enabled: false,
-                                  controller: TextEditingController(text: newLab.date!=null
-                                      ? DateUtils.formatHour(context, newLab.date)
-                                      : ""),
-                                  decoration: InputDecoration(
-                                      border: OutlineInputBorder(),
-                                      labelText: "Godzina"
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
                       ],
                     ),
                   ),
@@ -289,12 +223,15 @@ class _LabChooserState extends State<LabChooser> {
                         Expanded(
                           child: FlatButton(
                             onPressed: () {
+                              int id;
                               if(newLab!=null) {
                                 setState(() {
-                                  Lists.labs.add(newLab);
-                                  Navigator.of(context).pushNamed(
-                                    '/lab/${newLab.id}');
+                                  id = labs.length+1;
+                                  Lists.labs.add(Lab(labs.length+1, labNameController.value.text, DateTime.now(), null));
+                                  labNameController.clear();
                                 });
+                                Navigator.of(context).pushNamed(
+                                    '/lab/$id');
                               }
                             },
                             child: Padding(
