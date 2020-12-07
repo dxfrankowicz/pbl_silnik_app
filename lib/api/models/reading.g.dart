@@ -14,6 +14,7 @@ Reading _$ReadingFromJson(Map<String, dynamic> json) {
     (json['statorCurrent'] as num)?.toDouble(),
     (json['rotorCurrent'] as num)?.toDouble(),
     (json['rotationalSpeed'] as num)?.toDouble(),
+    (json['powerFrequency'] as num)?.toDouble(),
     json['timeStamp'] == null
         ? null
         : DateTime.parse(json['timeStamp'] as String),
@@ -30,6 +31,7 @@ Map<String, dynamic> _$ReadingToJson(Reading instance) => <String, dynamic>{
       'statorCurrent': instance.statorCurrent,
       'rotorCurrent': instance.rotorCurrent,
       'rotationalSpeed': instance.rotationalSpeed,
+      'powerFrequency': instance.powerFrequency,
       'timeStamp': instance.timeStamp?.toIso8601String(),
       'task': instance.task,
     };

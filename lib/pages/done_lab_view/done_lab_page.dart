@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:silnik_app/api/models/lab.dart';
 import '../../lists.dart';
-import 'main_lab_view.dart';
+import 'done_lab_view.dart';
 
-class MainLabPage extends StatelessWidget{
+class DoneLabPage extends StatelessWidget{
   final int id;
 
-  MainLabPage(this.id);
+  DoneLabPage(this.id);
 
   Widget getLabsPage(int id) {
     for (Lab lab in Lists.labs) {
       if (lab.id == id) {
-        return MainLabView(lab);
+        return DoneLabView(lab);
       }
     }
   }

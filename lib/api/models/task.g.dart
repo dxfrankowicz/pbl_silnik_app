@@ -12,11 +12,11 @@ Task _$TaskFromJson(Map<String, dynamic> json) {
     json['name'] as String,
     (json['idleReadings'] as List)
         ?.map((e) =>
-            e == null ? null : StatValue.fromJson(e as Map<String, dynamic>))
+            e == null ? null : IdleReading.fromJson(e as Map<String, dynamic>))
         ?.toList(),
     (json['loadReadings'] as List)
         ?.map((e) =>
-            e == null ? null : StatValue.fromJson(e as Map<String, dynamic>))
+            e == null ? null : LoadReading.fromJson(e as Map<String, dynamic>))
         ?.toList(),
     json['lab'] == null
         ? null

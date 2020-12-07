@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fluro/fluro.dart';
 import 'package:silnik_app/pages/lab_choser.dart';
-import 'new_lab_view/main_lab_page.dart';
+import 'new_lab_view/new_lab_page.dart';
 
 class CustomRouter extends FluroRouter {
   void defineMultiplePaths(List<String> routePath, {@required Handler handler}) {

@@ -3,26 +3,29 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:silnik_app/api/models/idle_reading.dart';
 import 'package:silnik_app/api/models/lab.dart';
 import 'package:silnik_app/api/models/task.dart';
+import 'package:silnik_app/components/empty_view.dart';
 import 'package:silnik_app/pages/base_scaffold.dart';
 import 'package:silnik_app/utils/date_utils.dart';
+import 'package:silnik_app/utils/dialog_utils.dart';
 import 'package:silnik_app/utils/toast_utils.dart';
 import '../../api/models/stat_value.dart';
 import '../../lists.dart';
 
-class MainLabView extends StatefulWidget {
+class DoneLabView extends StatefulWidget {
   Lab lab;
-  MainLabView(this.lab, {Key key}) : super(key: key);
+  DoneLabView(this.lab, {Key key}) : super(key: key);
 
   @override
-  _MainLabViewState createState() => _MainLabViewState(lab);
+  _DoneLabViewState createState() => _DoneLabViewState(lab);
 }
 
-class _MainLabViewState extends State<MainLabView> {
+class _DoneLabViewState extends State<DoneLabView> {
 
   Lab lab;
-  _MainLabViewState(this.lab);
+  _DoneLabViewState(this.lab);
 
   TextTheme textTheme;
   bool isMacroRunning = false;
@@ -129,9 +132,9 @@ class _MainLabViewState extends State<MainLabView> {
 
   void fetchData() {
     Lists.statsList.forEach((element) {
-        setState(() {
-          element.value = Random().nextDouble();
-        });
+      setState(() {
+        element.value = Random().nextDouble();
+      });
     });
   }
 
@@ -156,15 +159,15 @@ class _MainLabViewState extends State<MainLabView> {
                           readOnly: true,
                           textAlign: TextAlign.center,
                           decoration: InputDecoration(
-                            suffix: Container(
-                                width: 40,
-                                child: Text(stat.unit)),
-                            isDense: true,
-                            prefix: Container(
-                                width: 40,
-                                child: Text(stat.symbol)),
-                            labelText: stat.desc,
-                            border: OutlineInputBorder()
+                              suffix: Container(
+                                  width: 40,
+                                  child: Text(stat.unit)),
+                              isDense: true,
+                              prefix: Container(
+                                  width: 40,
+                                  child: Text(stat.symbol)),
+                              labelText: stat.desc,
+                              border: OutlineInputBorder()
                           ),
                           style: textTheme.subtitle1),
                     ),
@@ -308,17 +311,17 @@ class _MainLabViewState extends State<MainLabView> {
                           child: FlatButton(
                             onPressed: (fetchDataType == FetchDataType.manual)
                                 ? () {
-                                    _stopFetchingData();
-                                    fetchData();
-                                  }
+                              _stopFetchingData();
+                              fetchData();
+                            }
                                 : !_fetchDataIntervalFormKey.currentState.validate()
-                                    ? null
-                                    : () {
-                                        if (!isFetchingPeriodically)
-                                          _startFetchingData();
-                                        else
-                                          _stopFetchingData();
-                                      },
+                                ? null
+                                : () {
+                              if (!isFetchingPeriodically)
+                                _startFetchingData();
+                              else
+                                _stopFetchingData();
+                            },
                             child: Padding(
                               padding: const EdgeInsets.all(8.0),
                               child: Text(
@@ -500,8 +503,8 @@ class _MainLabViewState extends State<MainLabView> {
                           controller: TextEditingController(text: Duration(seconds: _timer?.tick ?? 0).toString().split('.').first.padLeft(8, "0")),
                           readOnly: true,
                           decoration: InputDecoration(
-                            border: OutlineInputBorder(),
-                            labelText: "Czas wykonywania makra (HH:mm:ss)"
+                              border: OutlineInputBorder(),
+                              labelText: "Czas wykonywania makra (HH:mm:ss)"
                           ),
                         ),
                       ),
@@ -557,112 +560,102 @@ class _MainLabViewState extends State<MainLabView> {
       ],
     );
   }
-  
+
   Widget labAndTaskDetailsCard() {
-    return Row(
-      children: [
-        Expanded(
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 15.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 15.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      SelectableText("Laboratorium: ", style: textTheme.subtitle1),
+                      Expanded(child: SelectableText(lab.name, style: textTheme.subtitle1.copyWith(fontWeight: FontWeight.bold)))
+                    ],
+                  ),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Row(
                     children: [
                       Expanded(
                         child: Column(
                           children: [
                             Row(
                               children: [
-                                SelectableText("Laboratorium: ", style: textTheme.subtitle1),
-                                Expanded(child: SelectableText(lab.name, style: textTheme.subtitle1.copyWith(fontWeight: FontWeight.bold)))
+                                SelectableText("Zadanie: ", style: textTheme.subtitle1),
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      tasks == null || tasks.isEmpty  ?  Container() :  Expanded(
+                                        child: FlatButton(
+                                          onPressed: (){},
+                                          child: DropdownButton<Task>(
+                                            value: chosenTask,
+                                            underline: Container(),
+                                            isExpanded: true,
+                                            items: tasks.map((e){
+                                              return DropdownMenuItem(
+                                                child: Text(e.name, style: textTheme.subtitle1.copyWith(fontWeight: FontWeight.bold)),
+                                                value: e,
+                                              );
+                                            }).toList(),
+                                            onChanged: (value) {
+                                              setState(() {
+                                                if (value.id != chosenTask.id) {
+                                                  chosenTask = value;
+                                                  ToastUtils.showToast("Wybrane ćwiczenie: ${chosenTask.name}");
+                                                }
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                      Container(
+                                          margin: EdgeInsets.all(8),
+                                          child: IconButton(
+                                              icon: Icon(Icons.add_circle),
+                                              onPressed: (){
+                                                _showAddTaskDialog();
+                                              },
+                                              tooltip: "Dodaj nowe ćwiczenie")
+                                      ),
+                                    ],
+                                  ),
+                                )
                               ],
                             ),
                           ],
                         ),
                       ),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                children: [
-                                  Row(
-                                    children: [
-                                      SelectableText("Zadanie: ", style: textTheme.subtitle1),
-                                      Expanded(
-                                        child: Row(
-                                          children: [
-                                            tasks == null || tasks.isEmpty  ?  Container() :  Expanded(
-                                              child: FlatButton(
-                                                onPressed: (){},
-                                                child: DropdownButton<Task>(
-                                                  value: chosenTask,
-                                                  underline: Container(),
-                                                  isExpanded: true,
-                                                  items: tasks.map((e){
-                                                    return DropdownMenuItem(
-                                                      child: Text(e.name, style: textTheme.subtitle1.copyWith(fontWeight: FontWeight.bold)),
-                                                      value: e,
-                                                    );
-                                                  }).toList(),
-                                                  onChanged: (value) {
-                                                    setState(() {
-                                                      if (value.id != chosenTask.id) {
-                                                        chosenTask = value;
-                                                        ToastUtils.showToast("Wybrane ćwiczenie: ${chosenTask.name}");
-                                                      }
-                                                    });
-                                                  },
-                                                ),
-                                              ),
-                                            ),
-                                            Container(
-                                                margin: EdgeInsets.all(8),
-                                                child: IconButton(
-                                                    icon: Icon(Icons.add_circle),
-                                                    onPressed: (){
-                                                      _showAddTaskDialog();
-                                                    },
-                                                    tooltip: "Dodaj nowe ćwiczenie")
-                                            ),
-                                          ],
-                                        ),
-                                      )
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Column(
-                        children: [
-                          Row(
-                            children: [
-                              SelectableText("Czas trwania", style: textTheme.caption),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              SelectableText(Duration(seconds: _labDuration.tick).toString().split('.').first.padLeft(8, "0"), style: textTheme.subtitle1),
-                            ],
-                          )
-                        ],
-                      ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                SizedBox(width: 8),
+                Column(
+                  children: [
+                    Row(
+                      children: [
+                        SelectableText("Czas trwania", style: textTheme.caption),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        SelectableText(Duration(seconds: _labDuration.tick).toString().split('.').first.padLeft(8, "0"), style: textTheme.subtitle1),
+                      ],
+                    )
+                  ],
+                ),
+              ],
             ),
-          ),
-        )
-      ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -687,158 +680,115 @@ class _MainLabViewState extends State<MainLabView> {
           ),
         ]),
         body: SingleChildScrollView(
-          padding: const EdgeInsets.all(8.0),
-          child: Column(
-            children: [
-              labAndTaskDetailsCard(),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Container(
-                      child: Wrap(
-                        spacing: 2,
-                        runSpacing: 2,
-                        children: Lists.statsList.map((e) => statValue(e)).toList(),
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              children: [
+                labAndTaskDetailsCard(),
+                chosenTask==null ? EmptyView(message: "Nie wczytano zadania",) : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Container(
+                        child: Wrap(
+                          spacing: 2,
+                          runSpacing: 2,
+                          children: Lists.statsList.map((e) => statValue(e)).toList(),
+                        ),
                       ),
                     ),
-                  ),
-                  Expanded(
-                    child: Column(
-                        children: [
-                          fetchDataCard(),
-                          Column(
-                            children: Lists.statsList
-                                .where((x) => x.symbol == "f")
-                                .map((e) => changeValuesCard(e))
-                                .toList(),
-                          ),
-                          Column(
-                            children: Lists.statsList
-                                .where((x) => x.symbol == "f")
-                                .map((e) => changeValuesPeriodicallyCard(e))
-                                .toList(),
-                          )
-                        ]
-                    ),
-                  )
-                ],
-              ),
-            ],
-          )
+                    Expanded(
+                      child: Column(
+                          children: [
+                            fetchDataCard(),
+                            Column(
+                              children: Lists.statsList
+                                  .where((x) => x.symbol == "f")
+                                  .map((e) => changeValuesCard(e))
+                                  .toList(),
+                            ),
+                            Column(
+                              children: Lists.statsList
+                                  .where((x) => x.symbol == "f")
+                                  .map((e) => changeValuesPeriodicallyCard(e))
+                                  .toList(),
+                            )
+                          ]
+                      ),
+                    )
+                  ],
+                ),
+              ],
+            )
         )
     );
   }
 
   TextEditingController labNameController;
   _showAddTaskDialog() async {
+
     _showDialogLoadCreatedTask() async {
-      await showDialog<bool>(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              contentPadding: const EdgeInsets.all(16.0),
-              content: new Row(
-                children: <Widget>[
-                  new Expanded(
-                      child: Text("Wczytać dodane ćwiczenie?"))
-                ],
-              ),
-              actions: <Widget>[
-                new FlatButton(
-                    child: Row(
-                      children: [
-                        Icon(Icons.clear, color: Colors.red),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                          child: Text("Nie".toUpperCase(),
-                              style:
-                                  textTheme.button.copyWith(color: Colors.red)),
-                        )
-                      ],
-                    ),
-                    onPressed: () {
-                      Navigator.pop(context, false);
-                    }),
-                new FlatButton(
-                    child: Row(
-                      children: [
-                        Icon(Icons.check, color: Colors.black),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                          child: Text("Tak".toUpperCase(),
-                              style: textTheme.button
-                                  .copyWith(color: Colors.black)),
-                        )
-                      ],
-                    ),
-                    onPressed:() {
-                            Navigator.pop(context, true);
-                    })
-              ],
-            );
-          }).then((value) {
-        if (value != null && value) {
-          chosenTask = tasks.last;
-          ToastUtils.showToast("Wybrane ćwiczenie: ${chosenTask.name}");
-        }
-      });
+      DialogUtils.showYesNoDialog(
+          context, "Wczytać dodane ćwiczenie?",
+          yesFunction: () {
+            chosenTask = tasks.last;
+            ToastUtils.showToast("Wybrane ćwiczenie: ${chosenTask.name}");
+          });
     }
 
     labNameController = TextEditingController(text: "Nowe ćwiczenie".toString());
     await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context){
-        return AlertDialog(
-          contentPadding: const EdgeInsets.all(16.0),
-          content: new Row(
-            children: <Widget>[
-              new Expanded(
-                child: TextFormField(
-                  maxLines: 1,
-                  textAlign: TextAlign.left,
-                  autofocus: false,
-                  decoration: InputDecoration(
-                      labelText: "Podaj tytuł nowego ćwiczenia" ?? "",
-                      border: OutlineInputBorder()),
-                  controller: labNameController,
+        context: context,
+        builder: (BuildContext context){
+          return AlertDialog(
+            contentPadding: const EdgeInsets.all(16.0),
+            content: new Row(
+              children: <Widget>[
+                new Expanded(
+                    child: TextFormField(
+                      maxLines: 1,
+                      textAlign: TextAlign.left,
+                      autofocus: false,
+                      decoration: InputDecoration(
+                          labelText: "Podaj tytuł nowego ćwiczenia" ?? "",
+                          border: OutlineInputBorder()),
+                      controller: labNameController,
+                    )
                 )
-              )
-            ],
-          ),
-          actions: <Widget>[
-            new FlatButton(
-                child: Row(
-                  children: [
-                    Icon(Icons.clear, color: Colors.red),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text("Anuluj".toUpperCase(), style: textTheme.button.copyWith(color: Colors.red)),
-                    )
-                  ],
-                ),
-                onPressed: () {
-                  Navigator.pop(context, false);
-                }),
-            new FlatButton(
-                child: Row(
-                  children: [
-                    Icon(Icons.add, color: Colors.black),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text("Utwórz".toUpperCase(), style: textTheme.button.copyWith(color: Colors.black)),
-                    )
-                  ],
-                ),
-                onPressed: labNameController.value.text!="" ? () {
-                  Navigator.pop(context, true);
+              ],
+            ),
+            actions: <Widget>[
+              new FlatButton(
+                  child: Row(
+                    children: [
+                      Icon(Icons.clear, color: Colors.red),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Text("Anuluj".toUpperCase(), style: textTheme.button.copyWith(color: Colors.red)),
+                      )
+                    ],
+                  ),
+                  onPressed: () {
+                    Navigator.pop(context, false);
+                  }),
+              new FlatButton(
+                  child: Row(
+                    children: [
+                      Icon(Icons.add, color: Colors.black),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Text("Utwórz".toUpperCase(), style: textTheme.button.copyWith(color: Colors.black)),
+                      )
+                    ],
+                  ),
+                  onPressed: labNameController.value.text!="" ? () {
+                    Navigator.pop(context, true);
                   } : null)
-          ],
-        );
-      }
+            ],
+          );
+        }
     ).then((value){
       if(value!=null && value) {
-        tasks.add(Task(tasks.length + 1, labNameController.value.text, null, null, lab));
+        tasks.add(Task(tasks.length + 1, labNameController.value.text, List<IdleReading>(), null, lab));
         labNameController.clear();
         if (tasks.length == 1) {
           chosenTask = tasks.first;

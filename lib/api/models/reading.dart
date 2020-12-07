@@ -10,11 +10,20 @@ class Reading {
   double statorCurrent;
   double rotorCurrent;
   double rotationalSpeed;
+  double powerFrequency;
   DateTime timeStamp;
   Task task;
 
-  Reading(this.id, this.voltage, this.power, this.statorCurrent,
-      this.rotorCurrent, this.rotationalSpeed, this.timeStamp, this.task);
+  Reading(
+      this.id,
+      this.voltage,
+      this.power,
+      this.statorCurrent,
+      this.rotorCurrent,
+      this.rotationalSpeed,
+      this.powerFrequency,
+      this.timeStamp,
+      this.task);
 
   factory Reading.fromJson(Map<String, dynamic> json) => _$ReadingFromJson(json);
   Map<String, dynamic> toJson() => _$ReadingToJson(this);
