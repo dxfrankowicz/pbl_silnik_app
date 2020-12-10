@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:silnik_app/api/models/lab.dart';
+
 import 'package:silnik_app/utils/date_utils.dart';
 
 import '../lists.dart';
@@ -26,28 +27,26 @@ class _LabChooserState extends State<LabChooser> {
 
   @override
   void initState() {
-    super.initState();
     newLab = new Lab.empty();
     labNameController = new TextEditingController();
     newLab.date = DateTime.now();
     initializeDateFormatting();
+    super.initState();
   }
 
 
-
   List<Lab> getLabsList(){
-    labs = Lists.labs;
+    List<Lab> l = labs;
     if(dateRange.first!=null && dateRange.last!=null){
-      return labs.where((d) => d.date.isAfter(dateRange.first) && d.date.isBefore(dateRange.last.add(Duration(days: 1)))).toList();
+      l = labs.where((d) => d.date.isAfter(dateRange.first) && d.date.isBefore(dateRange.last.add(Duration(days: 1)))).toList();
     }
     else if(dateRange.first!=null){
-      return labs.where((d) => d.date.isAfter(dateRange.first)).toList();
+      l = labs.where((d) => d.date.isAfter(dateRange.first)).toList();
     }
     else if(dateRange.last!=null){
-      return labs.where((d) => d.date.isBefore(dateRange.last.add(Duration(days: 1)))).toList();
+      l = labs.where((d) => d.date.isBefore(dateRange.last.add(Duration(days: 1)))).toList();
     }
-    else
-      return labs;
+    return l;
   }
 
   List<Lab> getSortedByDateLabsList(){
@@ -151,22 +150,23 @@ class _LabChooserState extends State<LabChooser> {
                   ),
                   Container(
                     padding: EdgeInsets.only(top: 8),
-                    child: ListView(
-                      shrinkWrap: true,
-                      children: getSortedByDateLabsList().map((l){
-                        return FlatButton(
-                          onPressed: (){
-                            Navigator.of(context).pushNamed(
-                                '/lab/${l.id}');
-                          },
-                          child: ListTile(
-                            title: Text(l.name),
-                            subtitle: Text(DateUtils.formatDateTime(context, l.date)),
-                            leading: Icon(Icons.assessment_outlined),
-                          ),
-                        );
-                      }).toList()
-                    ),
+                    child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: getSortedByDateLabsList().length,
+                        itemBuilder: (BuildContext context, int index) {
+                          Lab l = getSortedByDateLabsList()[index];
+                          return FlatButton(
+                            onPressed: () {
+                              Navigator.of(context).pushNamed('/lab/${l.id}');
+                            },
+                            child: ListTile(
+                              title: Text(l.name),
+                              subtitle: Text(
+                                  DateUtils.formatDateTime(context, l.date)),
+                              leading: Icon(Icons.assessment_outlined),
+                            ),
+                          );
+                        }),
                   ),
                 ],
               ),
@@ -188,7 +188,7 @@ class _LabChooserState extends State<LabChooser> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
-                  Text("Stwórz nowe laboratorium", style: textTheme.headline6),
+                  Text("Utwórz nowe laboratorium", style: textTheme.headline6),
                   Container(
                     margin: EdgeInsets.symmetric(vertical: 8),
                     child: Column(
@@ -231,7 +231,7 @@ class _LabChooserState extends State<LabChooser> {
                                   labNameController.clear();
                                 });
                                 Navigator.of(context).pushNamed(
-                                    '/lab/$id');
+                                    '/new-lab/$id');
                               }
                             },
                             child: Padding(

@@ -8,17 +8,17 @@ part of 'reading.dart';
 
 Reading _$ReadingFromJson(Map<String, dynamic> json) {
   return Reading(
-    json['id'] as int,
-    (json['voltage'] as num)?.toDouble(),
-    (json['power'] as num)?.toDouble(),
-    (json['statorCurrent'] as num)?.toDouble(),
-    (json['rotorCurrent'] as num)?.toDouble(),
-    (json['rotationalSpeed'] as num)?.toDouble(),
-    (json['powerFrequency'] as num)?.toDouble(),
-    json['timeStamp'] == null
+    id: json['id'] as int,
+    voltage: (json['voltage'] as num)?.toDouble(),
+    power: (json['power'] as num)?.toDouble(),
+    statorCurrent: (json['statorCurrent'] as num)?.toDouble(),
+    rotorCurrent: (json['rotorCurrent'] as num)?.toDouble(),
+    rotationalSpeed: (json['rotationalSpeed'] as num)?.toDouble(),
+    powerFrequency: (json['powerFrequency'] as num)?.toDouble(),
+    timeStamp: json['timeStamp'] == null
         ? null
         : DateTime.parse(json['timeStamp'] as String),
-    json['task'] == null
+    task: json['task'] == null
         ? null
         : Task.fromJson(json['task'] as Map<String, dynamic>),
   );

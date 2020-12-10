@@ -60,13 +60,18 @@ class _MainLabViewState extends State<MainLabView> {
   //engine
   EngineState engineState = EngineState.idle;
 
-  //coding
-  List<String> codes = ["CODE1", "CODE2", "CODE3"];
+  //algorithms
+  Map<String,String> algorithms = {
+    "VFC open loop, linear": "Skalarny (U/f=  const), charakterystyka liniowa",
+    "VFC open loop, quadratic": "Skalarny (U/f = const), charakterystyka kwadratowa",
+    "SLVC (sensorless vector control": "Wektorowy bez sprzężenia zwrotnego",
+    "SM ASM (servo control for asynchronous motors)": "Wektorowy ze sprzężeniem zwrotnym"
+  };
   String code;
 
   @override
   void initState() {
-    code = codes.first;
+    code = algorithms.keys.first;
     Lists.statsList.forEach((element) {
       statValueChangeTextController[element.symbol] = TextEditingController();
       statValueChangeTextController[element.symbol].text = 0.toString();
@@ -164,15 +169,31 @@ class _MainLabViewState extends State<MainLabView> {
     if (engineState == EngineState.idle) {
       setState(() {
         chosenTask.idleReadings.add(IdleReading(
-            Reading(chosenTask.idleReadings.length+=1, r.nextDouble(), r.nextDouble(),
-                r.nextDouble(), r.nextDouble() ,r.nextDouble(), r.nextDouble(), DateTime.now(), chosenTask))
+            Reading(
+                id: chosenTask.idleReadings.length+1,
+                voltage: r.nextDouble(),
+                power: 1,
+                statorCurrent: r.nextDouble(),
+                rotorCurrent: r.nextDouble(),
+                rotationalSpeed: r.nextDouble(),
+                powerFrequency: r.nextDouble(),
+                timeStamp: DateTime.now(),
+                task: chosenTask))
         );
       });
     } else {
       setState(() {
         chosenTask.loadReadings.add(LoadReading(r.nextDouble(),
-            Reading(chosenTask.loadReadings.length+=1, r.nextDouble(), r.nextDouble(),
-                r.nextDouble(), r.nextDouble() ,r.nextDouble(), r.nextDouble(), DateTime.now(), chosenTask))
+            Reading(
+                id: chosenTask.idleReadings.length+1,
+                voltage: r.nextDouble(),
+                power: 1,
+                statorCurrent: r.nextDouble(),
+                rotorCurrent: r.nextDouble(),
+                rotationalSpeed: r.nextDouble(),
+                powerFrequency: r.nextDouble(),
+                timeStamp: DateTime.now(),
+                task: chosenTask))
         );
       });
     }
@@ -388,7 +409,7 @@ class _MainLabViewState extends State<MainLabView> {
 
   Widget engineStateCard() {
     return ExpandableCard(
-        title: "Stan silnika",
+        title: "Stan silnika: ${engineState == EngineState.idle ? "Jałowy" : "Obciążenia"}",
         child: Padding(
           padding: const EdgeInsets.all(15.0),
           child: Column(
@@ -446,7 +467,7 @@ class _MainLabViewState extends State<MainLabView> {
 
   Widget codingChooseCard() {
     return ExpandableCard(
-        title: "Kodowanie",
+        title: "Algorytm",
         child: Padding(
           padding: const EdgeInsets.all(15.0),
           child: Column(
@@ -458,24 +479,35 @@ class _MainLabViewState extends State<MainLabView> {
                   Expanded(
                     child: FlatButton(
                       onPressed: (){},
-                      child: DropdownButton<String>(
+                      child: DropdownButton(
                         value: code,
                         underline: Container(),
                         isExpanded: true,
-                        items: codes.map((e){
+                        items: algorithms.entries.map((e){
                           return DropdownMenuItem(
                             child: Center(
-                              child: Text(e, textAlign: TextAlign.center,
-                                  style: textTheme.subtitle1),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: new Text(e.value, textAlign: TextAlign.center,
+                                        style: textTheme.subtitle1),
+                                  ),
+                                  Flexible(
+                                    child: new Text("(${e.key})", textAlign: TextAlign.center,
+                                        style: textTheme.caption),
+                                  )
+                                ],
+                              ),
                             ),
-                            value: e,
+                            value: e.key,
                           );
                         }).toList(),
                         onChanged: (value) {
                           setState(() {
                             if (value != code) {
                               code = value;
-                              ToastUtils.showToast("Wybrano kodowanie: $code");
+                              ToastUtils.showToast("Wybrano algorytm: $code");
                             }
                           });
                         },

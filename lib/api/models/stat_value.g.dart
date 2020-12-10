@@ -15,6 +15,7 @@ StatValue _$StatValueFromJson(Map<String, dynamic> json) {
     value: (json['value'] as num)?.toDouble(),
     precision: json['precision'] as int,
     loadEngineStateReading: json['loadEngineStateReading'] as bool,
+    readingJsonKey: json['readingJsonKey'] as String,
     unit: json['unit'] as String,
   );
 }
@@ -28,4 +29,5 @@ Map<String, dynamic> _$StatValueToJson(StatValue instance) => <String, dynamic>{
       'unit': instance.unit,
       'precision': instance.precision,
       'loadEngineStateReading': instance.loadEngineStateReading,
+      'readingJsonKey': instance.readingJsonKey,
     };

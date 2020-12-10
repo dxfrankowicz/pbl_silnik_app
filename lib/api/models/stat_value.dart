@@ -11,6 +11,7 @@ class StatValue {
   String unit;
   int precision;
   bool loadEngineStateReading;
+  String readingJsonKey;
 
   StatValue(
       {this.symbol,
@@ -20,6 +21,7 @@ class StatValue {
         this.value,
         this.precision = 3,
         this.loadEngineStateReading = false,
+        this.readingJsonKey,
         this.unit});
 
   factory StatValue.fromJson(Map<String, dynamic> json) => _$StatValueFromJson(json);
