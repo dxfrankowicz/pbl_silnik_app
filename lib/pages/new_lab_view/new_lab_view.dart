@@ -35,16 +35,11 @@ class _MainLabViewState extends State<MainLabView> {
   bool isMacroRunning = false;
 
   Map<String, TextEditingController> statValueChangeTextController = new Map();
-  Map<String, List<TextEditingController>> macroChangeControllerValue = new Map();
-  Map<String, bool> macroChangeTextCheckBox = new Map();
   Map<String, bool> statValueChangeTextCheckBox = new Map();
 
-  TextEditingController macroChangeControllerTime = TextEditingController();
   FetchDataType fetchDataType = FetchDataType.manual;
 
   final _changeValuesCardKey = GlobalKey<FormState>();
-  final _macroTimeKey = GlobalKey<FormState>();
-  final _macroValueFormKey = GlobalKey<FormState>();
 
   //fetch data type
   TextEditingController fetchDataIntervalController = TextEditingController(text: 1.toString());
@@ -69,6 +64,23 @@ class _MainLabViewState extends State<MainLabView> {
   };
   String code;
 
+  //macro
+  final _macroTimeKey = GlobalKey<FormState>();
+  final _macroValueFormKey = GlobalKey<FormState>();
+  TextEditingController macroChangeControllerTime = TextEditingController();
+  Map<String, List<TextEditingController>> macroChangeControllerValue = new Map();
+  Map<String, List<TextEditingController>> macroChangeControllerSubLoopValue = new Map();
+  Map<String, bool> macroChangeTextCheckBox = new Map();
+  bool addSubLoop = false;
+  Timer _timer;
+  int macrosDone = 0;
+  int macrosTime = 0;
+  TextEditingController macroSubLoopChangeControllerTime = TextEditingController();
+  String subLoopStatFrequency = "T";
+  String subLoopStatTorque= "f";
+  final _macroTimeSubLoopKey = GlobalKey<FormState>();
+  final _macroValueSubLoopFormKey = GlobalKey<FormState>();
+
   @override
   void initState() {
     code = algorithms.keys.first;
@@ -76,9 +88,15 @@ class _MainLabViewState extends State<MainLabView> {
       statValueChangeTextController[element.symbol] = TextEditingController();
       statValueChangeTextController[element.symbol].text = 0.toString();
 
+
       //macro values: from, step, to
       macroChangeControllerValue[element.symbol] = [TextEditingController(), TextEditingController(), TextEditingController()];
       macroChangeControllerValue[element.symbol].forEach((e) {
+        e.text = 0.toString();
+      });
+
+      macroChangeControllerSubLoopValue[element.symbol] = [TextEditingController(), TextEditingController(), TextEditingController()];
+      macroChangeControllerSubLoopValue[element.symbol].forEach((e) {
         e.text = 0.toString();
       });
 
@@ -86,6 +104,8 @@ class _MainLabViewState extends State<MainLabView> {
       macroChangeTextCheckBox[element.symbol] = false;
     });
     macroChangeControllerTime.text = 10.toString();
+    macroSubLoopChangeControllerTime.text=10.toString();
+
     super.initState();
     if(lab.id==1)
       tasks = Lists.tasksLab1;
@@ -100,14 +120,21 @@ class _MainLabViewState extends State<MainLabView> {
     });
   }
 
-  Timer _timer;
-  int macrosDone = 0;
-  int macrosTime = 0;
-
   bool isIdleEngineState() => engineState==EngineState.idle;
   bool isLoadEngineState() => engineState==EngineState.load;
 
   void _startMacro() {
+    switch(engineState){
+      case EngineState.load:
+        if(macroChangeTextCheckBox["f"]) 
+          chosenTask.loadReadings.last.reading.powerFrequency = double.parse(macroChangeControllerValue["f"][0].text);
+        else if(macroChangeTextCheckBox["T"])
+          chosenTask.loadReadings.last.torque = double.parse(macroChangeControllerValue["T"][0].text);
+        break;
+      case EngineState.idle:
+        chosenTask.idleReadings.last.reading.powerFrequency = double.parse(macroChangeControllerValue["f"][0].text);
+        break;
+    }
     _timer = Timer.periodic(Duration(seconds: 1), (t) {
       setState(() {
         if (t.tick % int.parse(macroChangeControllerTime.text) == 0)
@@ -124,22 +151,51 @@ class _MainLabViewState extends State<MainLabView> {
   }
 
   void changeData() {
-    // macrosDone+=1;
-    // if (engineState == EngineState.idle) {
-    //   if (macroChangeControllerValue[element.symbol].text != null &&
-    //       macroChangeControllerValue[element.symbol].text != "")
-    //     setState(() {
-    //       chosenTask.value += double.parse(macroChangeControllerValue[element.symbol].text);
-    //     });
-    // } else{
-    //   Lists.statsList.forEach((element) {
-    //     if (macroChangeControllerValue[element.symbol].text != null &&
-    //         macroChangeControllerValue[element.symbol].text != "")
-    //       setState(() {
-    //         element.value += double.parse(macroChangeControllerValue[element.symbol].text);
-    //       });
-    //   });
-    // }
+    switch (engineState) {
+      case EngineState.load:
+        if(macroChangeTextCheckBox["f"]) {
+          if (chosenTask.loadReadings.last.reading.powerFrequency >= double.parse(macroChangeControllerValue["f"][2].value.text))
+            _stopMacro();
+          else {
+            macrosDone += 1;
+            if (macroChangeControllerValue["f"].every((x) => x != null) &&
+                macroChangeControllerValue["f"].every((x) => x.value.text != ""))
+              setState(() {
+                chosenTask.loadReadings.last.reading.powerFrequency += double.parse(macroChangeControllerValue["f"][1].text);
+              });
+            ToastUtils.showToast(
+                "Wykonano makro, ustawiono f = ${chosenTask.loadReadings.last.reading.powerFrequency}");
+          }
+        }
+        else if(macroChangeTextCheckBox["T"]) {
+          if (chosenTask.loadReadings.last.torque >= double.parse(macroChangeControllerValue["T"][2].value.text))
+            _stopMacro();
+          else {
+            macrosDone += 1;
+            if (macroChangeControllerValue["T"].every((x) => x != null) &&
+                macroChangeControllerValue["T"].every((x) => x.value.text != ""))
+              setState(() {
+                chosenTask.loadReadings.last.torque += double.parse(macroChangeControllerValue["T"][1].text);
+              });
+            ToastUtils.showToast("Wykonano makro, ustawiono T = ${chosenTask.loadReadings.last.torque}");
+          }
+        }
+        break;
+      case EngineState.idle:
+        if (chosenTask.idleReadings.last.reading.powerFrequency >=
+            double.parse(macroChangeControllerValue["f"][2].value.text))
+          _stopMacro();
+        else {
+          macrosDone += 1;
+          if (macroChangeControllerValue["f"].every((x) => x != null) &&
+              macroChangeControllerValue["f"].every((x) => x.value.text != ""))
+            setState(() {
+              chosenTask.idleReadings.last.reading.powerFrequency += double.parse(macroChangeControllerValue["f"][1].text);
+            });
+          ToastUtils.showToast("Wykonano makro, ustawiono f = ${chosenTask.idleReadings.last.reading.powerFrequency}");
+        }
+        break;
+    }
   }
 
   Timer _fetchTimer;
@@ -197,8 +253,8 @@ class _MainLabViewState extends State<MainLabView> {
         );
       });
     }
+    ToastUtils.showToast("Pobrano dane");
   }
-
 
   Widget statValue(StatValue stat, double value) {
     return Row(
@@ -252,7 +308,7 @@ class _MainLabViewState extends State<MainLabView> {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(4.0),
+            padding: const EdgeInsets.all(0.0),
             child: new Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               mainAxisAlignment: MainAxisAlignment.start,
@@ -409,7 +465,7 @@ class _MainLabViewState extends State<MainLabView> {
 
   Widget engineStateCard() {
     return ExpandableCard(
-        title: "Stan silnika: ${engineState == EngineState.idle ? "Jałowy" : "Obciążenia"}",
+        title: "Stan silnika: ${engineState == EngineState.idle ? "Jałowy".toUpperCase() : "Obciążenia".toUpperCase()}",
         child: Padding(
           padding: const EdgeInsets.all(15.0),
           child: Column(
@@ -465,7 +521,7 @@ class _MainLabViewState extends State<MainLabView> {
         ));
   }
 
-  Widget codingChooseCard() {
+  Widget algorithmChooseCard() {
     return ExpandableCard(
         title: "Algorytm",
         child: Padding(
@@ -590,9 +646,11 @@ class _MainLabViewState extends State<MainLabView> {
                                     chosenTask.idleReadings.last.reading.powerFrequency = double.parse(statValueChangeTextController["f"].value.text);
                                     break;
                                 }
+                                ToastUtils.showToast("Zmieniono wartość częstotliwości na: ${double.parse(statValueChangeTextController["f"].value.text)}");
                               }
                               if(statValueChangeTextCheckBox["T"] && isLoadEngineState()){
                                 chosenTask.loadReadings.last.torque = double.parse(statValueChangeTextController["T"].value.text);
+                                ToastUtils.showToast("Zmieniono wartość momentu na: ${double.parse(statValueChangeTextController["T"].value.text)}");
                               }
                             });
                         },
@@ -616,7 +674,7 @@ class _MainLabViewState extends State<MainLabView> {
     );
   }
 
-  Widget changeValuesPeriodicallyCard() {
+ Widget changeValuesPeriodicallyCard() {
 
     Widget customTextFieldMacro({StatValue stat, String controller,
       bool enabled, String suffixText, String prefixText}) {
@@ -627,13 +685,15 @@ class _MainLabViewState extends State<MainLabView> {
           textAlign: TextAlign.center,
           inputFormatters: [FilteringTextInputFormatter.allow(RegExp('[0-9-.]')),],
           validator: (value) {
-            if (value.isEmpty || value=="") {
+            if(isLoadEngineState() && !macroChangeTextCheckBox[stat.symbol])
+              return null;
+            else if (value.isEmpty || value=="") {
               return 'Pole nie może być puste';
             }
             else if(double.tryParse(value) ==null){
               return 'Niepoprawny format liczby';
             }
-            else if(double.tryParse(value) == 0){
+            else if(double.tryParse(value) == 0 && index>0){
               return 'Wartość != 0';
             }
             return null;
@@ -676,6 +736,89 @@ class _MainLabViewState extends State<MainLabView> {
       );
     }
 
+    Widget customTextFieldSubLoopMacro({StatValue stat, String controller,
+      bool enabled, String suffixText, String prefixText}) {
+
+      Widget textField(String label, int index){
+        return TextFormField(
+          maxLines: 1,
+          textAlign: TextAlign.center,
+          inputFormatters: [FilteringTextInputFormatter.allow(RegExp('[0-9-.]')),],
+          validator: (value) {
+            if(isLoadEngineState() && !macroChangeTextCheckBox[stat.symbol])
+              return null;
+            else if (value.isEmpty || value=="") {
+              return 'Pole nie może być puste';
+            }
+            else if(double.tryParse(value) ==null){
+              return 'Niepoprawny format liczby';
+            }
+            else if(double.tryParse(value) == 0){
+              return 'Wartość != 0';
+            }
+            return null;
+          },
+          decoration: InputDecoration(
+              suffixText: suffixText ?? stat.unit,
+              prefixText: prefixText ?? "${stat.symbol}",
+              labelText: label,
+              border: OutlineInputBorder()
+          ),
+          controller: macroChangeControllerSubLoopValue[stat.symbol][index],
+          enabled: enabled ?? !isMacroRunning,
+          onChanged: (s){
+            if (s != null && s != "" && double.tryParse(s) != null)
+              setState(() {});
+          },
+        );
+      }
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: new Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Column(
+              children: [
+                Icon(Icons.subdirectory_arrow_right),
+              ],
+            ),
+            Expanded(
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(10.0),
+                  child: new Column(
+                    children: [
+                      Form(
+                          key: _macroTimeSubLoopKey,
+                          child: customTextField(
+                              showButton: false,
+                              suffixText: "s",
+                              labelText: "Częstotliwość podrzędnej pętli",
+                              biggerThantZeroValidation: true,
+                              controller: macroSubLoopChangeControllerTime,
+                              enableNegative: false)
+                      ),
+                      Row(
+                        children: [
+                          Expanded(child: textField("Od", 0)),
+                          SizedBox(width: 10),
+                          Expanded(child: textField("Krok (+/-)", 1)),
+                          SizedBox(width: 10),
+                          Expanded(child: textField("Do", 2)),
+                        ],
+                      )
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return ExpandableCard(
       title: "Zmieniaj wartość cyklicznie (makro)",
       child: Padding(
@@ -684,15 +827,18 @@ class _MainLabViewState extends State<MainLabView> {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            Form(
-                key: _macroTimeKey,
-                child: customTextField(
-                    showButton: false,
-                    suffixText: "s",
-                    labelText: "Częstotliwość makra",
-                    biggerThantZeroValidation: true,
-                    controller: macroChangeControllerTime,
-                    enableNegative: false)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+              child: Form(
+                  key: _macroTimeKey,
+                  child: customTextField(
+                      showButton: false,
+                      suffixText: "s",
+                      labelText: "Częstotliwość makra",
+                      biggerThantZeroValidation: true,
+                      controller: macroChangeControllerTime,
+                      enableNegative: false)
+              ),
             ),
             Divider(color: Colors.black, thickness: 0.2, height: 20),
             Form(
@@ -704,16 +850,31 @@ class _MainLabViewState extends State<MainLabView> {
                       Expanded(
                           child: customTextFieldMacro(stat: Lists.getStatValue("f"))
                       ),
-                      Checkbox(
-                          value: macroChangeTextCheckBox["f"],
-                          onChanged: (x) {
-                            setState(() {
-                              macroChangeTextCheckBox["f"] = !macroChangeTextCheckBox["f"];
-                            });
-                          }
+                      Column(
+                        children: [
+                          Checkbox(
+                              value: macroChangeTextCheckBox["f"],
+                              onChanged: (x) {
+                                setState(() {
+                                  macroChangeTextCheckBox["f"] = !macroChangeTextCheckBox["f"];
+                                });
+                              }
+                          ),
+                          if(isLoadEngineState())
+                          IconButton(
+                            icon: Icon(!addSubLoop ? Icons.arrow_circle_down : Icons.arrow_circle_up, color: Colors.blue),
+                            tooltip: !addSubLoop ? "Dodaj pętlę podrzędną" : "Usuń pętlę podrzędną",
+                            onPressed: (){
+                              setState(() {
+                                addSubLoop=!addSubLoop;
+                              });
+                            },
+                          )
+                        ],
                       )
                     ],
                   ),
+                  addSubLoop ? customTextFieldSubLoopMacro(stat: Lists.getStatValue("T")) : Container(),
                   if(isLoadEngineState())
                     Row(
                       children: [
@@ -959,7 +1120,7 @@ class _MainLabViewState extends State<MainLabView> {
                           ])),
                           Expanded(
                             child: Column(children: [
-                              codingChooseCard(),
+                              algorithmChooseCard(),
                               changeValuesCard(),
                               changeValuesPeriodicallyCard(),
                               fetchDataCard()

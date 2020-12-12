@@ -80,7 +80,7 @@ class _DoneLabViewState extends State<DoneLabView> {
   Widget chart(){
     return Container(
       width: MediaQuery.of(context).size.width*0.65,
-      height: MediaQuery.of(context).size.width*0.65,
+      height: MediaQuery.of(context).size.width*0.4,
       margin: EdgeInsets.symmetric(vertical: 15),
       child: ChartJS(
           id: 'my-chart',

@@ -12,6 +12,6 @@ class ToastUtils{
         webPosition: "center",
         gravity: ToastGravity.CENTER,
 
-        timeInSecForIosWeb: 3);
+        timeInSecForIosWeb: 2);
   }
 }
