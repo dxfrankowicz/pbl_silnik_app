@@ -12,11 +12,12 @@ LoadReading _$LoadReadingFromJson(Map<String, dynamic> json) {
     json['reading'] == null
         ? null
         : Reading.fromJson(json['reading'] as Map<String, dynamic>),
-  );
+  )..selected = json['selected'] as bool;
 }
 
 Map<String, dynamic> _$LoadReadingToJson(LoadReading instance) =>
     <String, dynamic>{
       'torque': instance.torque,
+      'selected': instance.selected,
       'reading': instance.reading,
     };

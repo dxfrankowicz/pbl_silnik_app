@@ -11,10 +11,11 @@ IdleReading _$IdleReadingFromJson(Map<String, dynamic> json) {
     json['reading'] == null
         ? null
         : Reading.fromJson(json['reading'] as Map<String, dynamic>),
-  );
+  )..selected = json['selected'] as bool;
 }
 
 Map<String, dynamic> _$IdleReadingToJson(IdleReading instance) =>
     <String, dynamic>{
       'reading': instance.reading,
+      'selected': instance.selected,
     };

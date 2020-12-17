@@ -5,6 +5,7 @@ part 'idle_reading.g.dart';
 @JsonSerializable()
 class IdleReading {
   Reading reading;
+  bool selected = false;
 
   IdleReading(this.reading);
 

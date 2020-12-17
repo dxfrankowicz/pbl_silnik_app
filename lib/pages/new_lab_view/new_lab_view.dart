@@ -9,6 +9,7 @@ import 'package:silnik_app/api/models/lab.dart';
 import 'package:silnik_app/api/models/load_reading.dart';
 import 'package:silnik_app/api/models/reading.dart';
 import 'package:silnik_app/api/models/task.dart';
+import 'package:silnik_app/components/data_table.dart';
 import 'package:silnik_app/components/empty_view.dart';
 import 'package:silnik_app/components/expandable_card.dart';
 import 'package:silnik_app/pages/base_scaffold.dart';
@@ -77,9 +78,7 @@ class _MainLabViewState extends State<MainLabView> {
   int macrosTime = 0;
   TextEditingController macroSubLoopChangeControllerTime = TextEditingController();
   String subLoopStatFrequency = "T";
-  String subLoopStatTorque= "f";
   final _macroTimeSubLoopKey = GlobalKey<FormState>();
-  final _macroValueSubLoopFormKey = GlobalKey<FormState>();
 
   @override
   void initState() {
@@ -124,6 +123,8 @@ class _MainLabViewState extends State<MainLabView> {
   bool isLoadEngineState() => engineState==EngineState.load;
 
   void _startMacro() {
+    fetchData();
+    macrosDone = 0;
     switch(engineState){
       case EngineState.load:
         if(macroChangeTextCheckBox["f"]) 
@@ -135,65 +136,161 @@ class _MainLabViewState extends State<MainLabView> {
         chosenTask.idleReadings.last.reading.powerFrequency = double.parse(macroChangeControllerValue["f"][0].text);
         break;
     }
-    _timer = Timer.periodic(Duration(seconds: 1), (t) {
-      setState(() {
-        if (t.tick % int.parse(macroChangeControllerTime.text) == 0)
-          changeData();
+    if(addSubLoop && isLoadEngineState()){
+      startSubLoop();
+      _timer = Timer.periodic(Duration(seconds: 1), (t) {});
+    }
+    else {
+      _timer = Timer.periodic(Duration(seconds: 1), (t) {
+        setState(() {
+          if (t.tick % int.parse(macroChangeControllerTime.text) == 0)
+            changeData();
+        });
       });
-    });
+    }
     isMacroRunning = true;
+  }
+
+  Timer subLoop;
+  void startSubLoop() {
+    setState(() {
+      chosenTask.loadReadings.last.torque = double.parse(macroChangeControllerSubLoopValue["T"][0].text);
+    });
+    subLoop = Timer.periodic(Duration(seconds: 1), (t1) {
+      if (t1.tick % int.parse(macroSubLoopChangeControllerTime.text) == 0) {
+        chosenTask.loadReadings.add(
+            LoadReading(chosenTask.loadReadings.last.torque -= double.parse(macroChangeControllerSubLoopValue["T"][1].text),
+                Reading(
+                    id: chosenTask.loadReadings.length + 1,
+                    voltage: Random().nextDouble(),
+                    power: Random().nextDouble(),
+                    statorCurrent: Random().nextDouble(),
+                    rotorCurrent: Random().nextDouble(),
+                    rotationalSpeed: Random().nextDouble(),
+                    powerFrequency: chosenTask.loadReadings.last.reading
+                        .powerFrequency,
+                    timeStamp: DateTime.now(),
+                    task: chosenTask)));
+        setState(() {
+          if ((chosenTask.loadReadings.last.torque += double.parse(macroChangeControllerSubLoopValue["T"][1].text))
+              > double.parse(macroChangeControllerSubLoopValue["T"][2].text))
+            chosenTask.loadReadings.last.torque = double.parse(macroChangeControllerSubLoopValue["T"][2].text);
+          else
+            chosenTask.loadReadings.last.torque += double.parse(macroChangeControllerSubLoopValue["T"][1].text);
+          ToastUtils.showToast(
+              "Wykonano podrzędną pętlę makra T = ${chosenTask.loadReadings.last.torque} "
+                  "dla f = ${chosenTask.loadReadings.last.reading.powerFrequency}");
+
+          if (chosenTask.loadReadings.last.torque >= double.parse(macroChangeControllerSubLoopValue["T"][2].text)) {
+            subLoop.cancel();
+            Future.delayed(Duration(seconds: int.parse(macroChangeControllerTime.text)), () {
+              chosenTask.loadReadings.add(
+                  LoadReading(chosenTask.loadReadings.last.torque,
+                      Reading(
+                          id: chosenTask.loadReadings.length + 1,
+                          voltage: Random().nextDouble(),
+                          power: Random().nextDouble(),
+                          statorCurrent: Random().nextDouble(),
+                          rotorCurrent: Random().nextDouble(),
+                          rotationalSpeed: Random().nextDouble(),
+                          powerFrequency:
+                          chosenTask.loadReadings.last.reading.powerFrequency += double.parse(macroChangeControllerValue["f"][1].text),
+                          timeStamp: DateTime.now(),
+                          task: chosenTask)));
+              if (chosenTask.loadReadings.last.reading.powerFrequency >
+                  double.parse(macroChangeControllerSubLoopValue["f"][2].text))
+                _stopMacro();
+              else
+                startSubLoop();
+            });
+          }
+        });
+      }
+    });
   }
 
   void _stopMacro() {
     _timer?.cancel();
-    macrosDone = 0;
     isMacroRunning = false;
   }
 
   void changeData() {
     switch (engineState) {
       case EngineState.load:
-        if(macroChangeTextCheckBox["f"]) {
-          if (chosenTask.loadReadings.last.reading.powerFrequency >= double.parse(macroChangeControllerValue["f"][2].value.text))
-            _stopMacro();
-          else {
-            macrosDone += 1;
-            if (macroChangeControllerValue["f"].every((x) => x != null) &&
-                macroChangeControllerValue["f"].every((x) => x.value.text != ""))
-              setState(() {
+        if (macroChangeTextCheckBox["f"]) {
+          macrosDone += 1;
+          if (macroChangeControllerValue["f"].every((x) => x != null) && macroChangeControllerValue["f"].every((x) => x.value.text != ""))
+            chosenTask.loadReadings.add(LoadReading(Random().nextDouble(),
+                Reading(
+                    id: chosenTask.loadReadings.length+1,
+                    voltage: Random().nextDouble(),
+                    power: Random().nextDouble(),
+                    statorCurrent: Random().nextDouble(),
+                    rotorCurrent: Random().nextDouble(),
+                    rotationalSpeed: Random().nextDouble(),
+                    powerFrequency:  chosenTask.loadReadings.last.reading.powerFrequency-=double.parse(macroChangeControllerValue["f"][1].text),
+                    timeStamp: DateTime.now(),
+                    task: chosenTask)));
+            setState(() {
+              if ((chosenTask.loadReadings.last.reading.powerFrequency += double.parse(macroChangeControllerValue["f"][1].text)) >
+                  double.parse(macroChangeControllerValue["f"][2].value.text))
+                chosenTask.loadReadings.last.reading.powerFrequency = double.parse(macroChangeControllerValue["f"][2].text);
+              else
                 chosenTask.loadReadings.last.reading.powerFrequency += double.parse(macroChangeControllerValue["f"][1].text);
-              });
-            ToastUtils.showToast(
-                "Wykonano makro, ustawiono f = ${chosenTask.loadReadings.last.reading.powerFrequency}");
-          }
-        }
-        else if(macroChangeTextCheckBox["T"]) {
-          if (chosenTask.loadReadings.last.torque >= double.parse(macroChangeControllerValue["T"][2].value.text))
-            _stopMacro();
-          else {
+              if (chosenTask.loadReadings.last.reading.powerFrequency >= double.parse(macroChangeControllerValue["f"][2].value.text))
+                _stopMacro();
+            });
+          ToastUtils.showToast("Wykonano makro, ustawiono f = ${chosenTask.loadReadings.last.reading.powerFrequency}");
+        } else if(macroChangeTextCheckBox["T"]) {
             macrosDone += 1;
-            if (macroChangeControllerValue["T"].every((x) => x != null) &&
-                macroChangeControllerValue["T"].every((x) => x.value.text != ""))
+            if (macroChangeControllerValue["T"].every((x) => x != null) && macroChangeControllerValue["T"].every((x) => x.value.text != ""))
+              chosenTask.loadReadings.add(LoadReading(chosenTask.loadReadings.last.torque-=double.parse(macroChangeControllerValue["T"][1].text),
+                  Reading(
+                      id: chosenTask.loadReadings.length+1,
+                      voltage: Random().nextDouble(),
+                      power: Random().nextDouble(),
+                      statorCurrent: Random().nextDouble(),
+                      rotorCurrent: Random().nextDouble(),
+                      rotationalSpeed: Random().nextDouble(),
+                      powerFrequency:  Random().nextDouble(),
+                      timeStamp: DateTime.now(),
+                      task: chosenTask)));
               setState(() {
-                chosenTask.loadReadings.last.torque += double.parse(macroChangeControllerValue["T"][1].text);
+                if ((chosenTask.loadReadings.last.torque += double.parse(macroChangeControllerValue["T"][1].text)) >
+                    double.parse(macroChangeControllerValue["T"][2].value.text))
+                  chosenTask.loadReadings.last.torque = double.parse(macroChangeControllerValue["T"][2].text);
+                else
+                  chosenTask.loadReadings.last.torque += double.parse(macroChangeControllerValue["T"][1].text);
+                if (chosenTask.loadReadings.last.torque >= double.parse(macroChangeControllerValue["T"][2].value.text))
+                  _stopMacro();
               });
             ToastUtils.showToast("Wykonano makro, ustawiono T = ${chosenTask.loadReadings.last.torque}");
-          }
         }
         break;
       case EngineState.idle:
-        if (chosenTask.idleReadings.last.reading.powerFrequency >=
-            double.parse(macroChangeControllerValue["f"][2].value.text))
-          _stopMacro();
-        else {
           macrosDone += 1;
-          if (macroChangeControllerValue["f"].every((x) => x != null) &&
-              macroChangeControllerValue["f"].every((x) => x.value.text != ""))
+          if (macroChangeControllerValue["f"].every((x) => x != null) && macroChangeControllerValue["f"].every((x) => x.value.text != ""))
+            chosenTask.idleReadings.add(IdleReading(
+                Reading(
+                    id: chosenTask.idleReadings.length+1,
+                    voltage: Random().nextDouble(),
+                    power: Random().nextDouble(),
+                    statorCurrent: Random().nextDouble(),
+                    rotorCurrent: Random().nextDouble(),
+                    rotationalSpeed: Random().nextDouble(),
+                    powerFrequency:  chosenTask.idleReadings.last.reading.powerFrequency-=double.parse(macroChangeControllerValue["f"][1].text),
+                    timeStamp: DateTime.now(),
+                    task: chosenTask)));
             setState(() {
-              chosenTask.idleReadings.last.reading.powerFrequency += double.parse(macroChangeControllerValue["f"][1].text);
+              if ((chosenTask.idleReadings.last.reading.powerFrequency += double.parse(macroChangeControllerValue["f"][1].text)) >
+                  double.parse(macroChangeControllerValue["f"][2].value.text))
+                chosenTask.idleReadings.last.reading.powerFrequency = double.parse(macroChangeControllerValue["f"][2].text);
+              else
+                chosenTask.idleReadings.last.reading.powerFrequency += double.parse(macroChangeControllerValue["f"][1].text);
+              if (chosenTask.idleReadings.last.reading.powerFrequency >= double.parse(macroChangeControllerValue["f"][2].value.text))
+                _stopMacro();
             });
           ToastUtils.showToast("Wykonano makro, ustawiono f = ${chosenTask.idleReadings.last.reading.powerFrequency}");
-        }
         break;
     }
   }
@@ -228,7 +325,7 @@ class _MainLabViewState extends State<MainLabView> {
             Reading(
                 id: chosenTask.idleReadings.length+1,
                 voltage: r.nextDouble(),
-                power: 1,
+                power: r.nextDouble(),
                 statorCurrent: r.nextDouble(),
                 rotorCurrent: r.nextDouble(),
                 rotationalSpeed: r.nextDouble(),
@@ -243,7 +340,7 @@ class _MainLabViewState extends State<MainLabView> {
             Reading(
                 id: chosenTask.idleReadings.length+1,
                 voltage: r.nextDouble(),
-                power: 1,
+                power: r.nextDouble(),
                 statorCurrent: r.nextDouble(),
                 rotorCurrent: r.nextDouble(),
                 rotationalSpeed: r.nextDouble(),
@@ -635,6 +732,7 @@ class _MainLabViewState extends State<MainLabView> {
                         onPressed: isMacroRunning || (statValueChangeTextCheckBox.values.every((x) => !x) || (isIdleEngineState() ? chosenTask.idleReadings.isEmpty : chosenTask.loadReadings.isEmpty))
                             ? null
                             : () {
+                          fetchData();
                           if (_changeValuesCardKey.currentState.validate())
                             setState(() {
                               if(statValueChangeTextCheckBox["f"]){
@@ -845,51 +943,63 @@ class _MainLabViewState extends State<MainLabView> {
               key: _macroValueFormKey,
               child: Column(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                          child: customTextFieldMacro(stat: Lists.getStatValue("f"))
-                      ),
-                      Column(
+                  AbsorbPointer(
+                    absorbing: macroChangeTextCheckBox["T"],
+                    child: Opacity(
+                      opacity: macroChangeTextCheckBox["T"] ? 0.2 : 1,
+                      child: Row(
                         children: [
-                          Checkbox(
-                              value: macroChangeTextCheckBox["f"],
-                              onChanged: (x) {
-                                setState(() {
-                                  macroChangeTextCheckBox["f"] = !macroChangeTextCheckBox["f"];
-                                });
-                              }
+                          Expanded(
+                              child: customTextFieldMacro(stat: Lists.getStatValue("f"))
                           ),
-                          if(isLoadEngineState())
-                          IconButton(
-                            icon: Icon(!addSubLoop ? Icons.arrow_circle_down : Icons.arrow_circle_up, color: Colors.blue),
-                            tooltip: !addSubLoop ? "Dodaj pętlę podrzędną" : "Usuń pętlę podrzędną",
-                            onPressed: (){
-                              setState(() {
-                                addSubLoop=!addSubLoop;
-                              });
-                            },
+                          Column(
+                            children: [
+                              Checkbox(
+                                  value: macroChangeTextCheckBox["f"],
+                                  onChanged: (x) {
+                                    setState(() {
+                                      macroChangeTextCheckBox["f"] = !macroChangeTextCheckBox["f"];
+                                    });
+                                  }
+                              ),
+                              if(isLoadEngineState())
+                              IconButton(
+                                icon: Icon(!addSubLoop ? Icons.arrow_circle_down : Icons.arrow_circle_up, color: Colors.blue),
+                                tooltip: !addSubLoop ? "Dodaj pętlę podrzędną" : "Usuń pętlę podrzędną",
+                                onPressed: (){
+                                  setState(() {
+                                    addSubLoop=!addSubLoop;
+                                  });
+                                },
+                              )
+                            ],
                           )
                         ],
-                      )
-                    ],
+                      ),
+                    ),
                   ),
                   addSubLoop ? customTextFieldSubLoopMacro(stat: Lists.getStatValue("T")) : Container(),
                   if(isLoadEngineState())
-                    Row(
-                      children: [
-                        Expanded(
-                            child: customTextFieldMacro(stat: Lists.getStatValue("T"))
+                    AbsorbPointer(
+                      absorbing: macroChangeTextCheckBox["f"],
+                      child: Opacity(
+                        opacity: macroChangeTextCheckBox["f"] ? 0.2 : 1,
+                        child: Row(
+                          children: [
+                            Expanded(
+                                child: customTextFieldMacro(stat: Lists.getStatValue("T"))
+                            ),
+                            Checkbox(
+                                value: macroChangeTextCheckBox["T"],
+                                onChanged: (x) {
+                                  setState(() {
+                                    macroChangeTextCheckBox["T"] = !macroChangeTextCheckBox["T"];
+                                  });
+                                }
+                            )
+                          ],
                         ),
-                        Checkbox(
-                            value: macroChangeTextCheckBox["T"],
-                            onChanged: (x) {
-                              setState(() {
-                                macroChangeTextCheckBox["T"] = !macroChangeTextCheckBox["T"];
-                              });
-                            }
-                        )
-                      ],
+                      ),
                     )
                 ],
               )
@@ -1056,6 +1166,40 @@ class _MainLabViewState extends State<MainLabView> {
     );
   }
 
+  Widget historicalDataTableCard(){
+    return CustomPaginatedTable(
+      idleReadings: chosenTask.idleReadings,
+      loadReadings: chosenTask.loadReadings,
+      isIdleSelected: engineState == EngineState.idle,);
+  }
+
+  Widget latestDataCard(){
+    return Column(
+      children: [
+        statValue(Lists.getStatValue("U"), (isIdleEngineState()
+            ? chosenTask.idleReadings.isEmpty ? null : chosenTask?.idleReadings?.last?.reading?.voltage
+            : chosenTask.loadReadings.isEmpty ? null : chosenTask?.loadReadings?.last?.reading?.voltage)),
+        statValue(Lists.getStatValue("f"), (isIdleEngineState()
+            ? chosenTask.idleReadings.isEmpty ? null : chosenTask?.idleReadings?.last?.reading?.powerFrequency
+            : chosenTask.loadReadings.isEmpty ? null : chosenTask?.loadReadings?.last?.reading?.powerFrequency)),
+        statValue(Lists.getStatValue("n"), (isIdleEngineState()
+            ? chosenTask.idleReadings.isEmpty ? null : chosenTask?.idleReadings?.last?.reading?.rotationalSpeed
+            : chosenTask.loadReadings.isEmpty ? null : chosenTask?.loadReadings?.last?.reading?.rotationalSpeed)),
+        statValue(Lists.getStatValue("P"), (isIdleEngineState()
+            ? chosenTask.idleReadings.isEmpty ? null : chosenTask?.idleReadings?.last?.reading?.power
+            : chosenTask.loadReadings.isEmpty ? null : chosenTask?.loadReadings?.last?.reading?.power)),
+        statValue(Lists.getStatValue("Is"), (isIdleEngineState()
+            ? chosenTask.idleReadings.isEmpty ? null : chosenTask?.idleReadings?.last?.reading?.statorCurrent
+            : chosenTask.loadReadings.isEmpty ? null : chosenTask?.loadReadings?.last?.reading?.statorCurrent)),
+        statValue(Lists.getStatValue("Iw"), (isIdleEngineState()
+            ? chosenTask.idleReadings.isEmpty ? null : chosenTask?.idleReadings?.last?.reading?.rotorCurrent
+            : chosenTask.loadReadings.isEmpty ? null : chosenTask?.loadReadings?.last?.reading?.rotorCurrent)),
+        if(isLoadEngineState())
+          statValue(Lists.getStatValue("T"), chosenTask.loadReadings.isEmpty ? null : chosenTask?.loadReadings?.last?.torque)
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     textTheme = Theme.of(context).textTheme;
@@ -1089,41 +1233,66 @@ class _MainLabViewState extends State<MainLabView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
+                            flex: 3,
                               child: Column(children: [
-                            engineStateCard(),
-                            Container(
-                              child: Column(
-                                children: [
-                                  statValue(Lists.getStatValue("U"), (isIdleEngineState()
-                                      ? chosenTask.idleReadings.isEmpty ? null : chosenTask?.idleReadings?.last?.reading?.voltage
-                                      : chosenTask.loadReadings.isEmpty ? null : chosenTask?.loadReadings?.last?.reading?.voltage)),
-                                  statValue(Lists.getStatValue("f"), (isIdleEngineState()
-                                      ? chosenTask.idleReadings.isEmpty ? null : chosenTask?.idleReadings?.last?.reading?.powerFrequency
-                                      : chosenTask.loadReadings.isEmpty ? null : chosenTask?.loadReadings?.last?.reading?.powerFrequency)),
-                                  statValue(Lists.getStatValue("n"), (isIdleEngineState()
-                                      ? chosenTask.idleReadings.isEmpty ? null : chosenTask?.idleReadings?.last?.reading?.rotationalSpeed
-                                      : chosenTask.loadReadings.isEmpty ? null : chosenTask?.loadReadings?.last?.reading?.rotationalSpeed)),
-                                  statValue(Lists.getStatValue("P"), (isIdleEngineState()
-                                      ? chosenTask.idleReadings.isEmpty ? null : chosenTask?.idleReadings?.last?.reading?.power
-                                      : chosenTask.loadReadings.isEmpty ? null : chosenTask?.loadReadings?.last?.reading?.power)),
-                                  statValue(Lists.getStatValue("Is"), (isIdleEngineState()
-                                      ? chosenTask.idleReadings.isEmpty ? null : chosenTask?.idleReadings?.last?.reading?.statorCurrent
-                                      : chosenTask.loadReadings.isEmpty ? null : chosenTask?.loadReadings?.last?.reading?.statorCurrent)),
-                                  statValue(Lists.getStatValue("Iw"), (isIdleEngineState()
-                                      ? chosenTask.idleReadings.isEmpty ? null : chosenTask?.idleReadings?.last?.reading?.rotorCurrent
-                                      : chosenTask.loadReadings.isEmpty ? null : chosenTask?.loadReadings?.last?.reading?.rotorCurrent)),
-                                  if(isLoadEngineState())
-                                    statValue(Lists.getStatValue("T"), chosenTask.loadReadings.isEmpty ? null : chosenTask?.loadReadings?.last?.torque)
-                                ],
-                              ),
-                            ),
+                                engineStateCard(),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Card(
+                                        child: new Container(
+                                          height: 750,
+                                          child: MaterialApp(
+                                            debugShowCheckedModeBanner: false,
+                                            builder: (context, child){
+                                              return DefaultTabController(
+                                                  length: 2,
+                                                  child: Column(
+                                                    children: [
+                                                      new TabBar(
+                                                        indicatorColor: Colors.blue,
+                                                        indicatorWeight: 2,
+                                                        tabs: [
+                                                          Padding(
+                                                            padding: const EdgeInsets.all(8.0),
+                                                            child: Text("Odczyty bieżące",  textAlign: TextAlign.center,
+                                                                style: Theme.of(context).textTheme.headline6),
+                                                          ),
+                                                          Padding(
+                                                            padding: const EdgeInsets.all(8.0),
+                                                            child: new Text("Historia odczytów",  textAlign: TextAlign.center,
+                                                                style: Theme.of(context).textTheme.headline6),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      Flexible(
+                                                        child: Padding(
+                                                          padding: const EdgeInsets.all(8.0),
+                                                          child: TabBarView(
+                                                            children: [
+                                                              latestDataCard(),
+                                                              historicalDataTableCard(),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ));
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  ],
+                                )
                           ])),
                           Expanded(
+                            flex: 2,
                             child: Column(children: [
                               algorithmChooseCard(),
                               changeValuesCard(),
                               changeValuesPeriodicallyCard(),
-                              fetchDataCard()
+                              fetchDataCard(),
                             ]),
                           )
                         ],

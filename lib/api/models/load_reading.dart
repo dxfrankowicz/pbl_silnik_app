@@ -5,6 +5,7 @@ part 'load_reading.g.dart';
 @JsonSerializable()
 class LoadReading {
   double torque;
+  bool selected = false;
   Reading reading;
 
   LoadReading(this.torque, this.reading);
