@@ -1,16 +1,14 @@
 # silnik_app
 
-Aplikacja web Flutter do badania silnika asynchronicznego. Projekt PBL 2020
+Flutter web application for PBL 2020/2021.
 
-## Getting Started
+Application designed for displaying live paramteres of engine and setting values. 
+Application uses external API.
 
-This project is a starting point for a Flutter application.
+## Content
+ - Displaying engine parameters (values and charts)
+ - Text forms for setting parameters of the engine
+ - Home page fo creating labs and exercises
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://flutter.dev/docs/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://flutter.dev/docs/cookbook)
-
-For help getting started with Flutter, view our
-[online documentation](https://flutter.dev/docs), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Technologies
+- Flutter framework
