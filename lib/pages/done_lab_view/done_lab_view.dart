@@ -45,18 +45,19 @@ class _DoneLabViewState extends State<DoneLabView> {
 
   bool isLoading = true;
   RangeValues _currentRangeValues;
+  final String xAxisT = "t (czas, kolejne pomiary)";
 
   @override
   void initState() {
     engineState = EngineState.idle;
     fetchData();
     super.initState();
-    selectedXAxis = "t (czas, kolejne pomiary)";
+    selectedXAxis = xAxisT;
     selectedYAxis = "f";
     idleSymbols = Lists.statsList.where((x) => !x.loadEngineStateReading).map((e) => e.symbol).toList();
-    idleSymbols.add("t (czas, kolejne pomiary)");
+    idleSymbols.add(xAxisT);
     loadSymbols = Lists.statsList.map((e) => e.symbol).toList();
-    loadSymbols.add("t (czas, kolejne pomiary)");
+    loadSymbols.add(xAxisT);
   }
 
   Future<void> fetchData() async{
@@ -100,7 +101,7 @@ class _DoneLabViewState extends State<DoneLabView> {
             )
           ),
           data: ChartData(
-              labels: xAxisData.map((e) =>e.toStringAsFixed(selectedXAxis=="t (czas, kolejne pomiary)" ? 0 : 3))
+              labels: xAxisData.map((e) =>e.toStringAsFixed(selectedXAxis==xAxisT ? 0 : 3))
                   .toList().getRange(_currentRangeValues?.start?.toInt() ?? 0, _currentRangeValues?.end?.toInt() ?? xAxisData.length).toList(),
               datasets: [
                 ChartDataset(
@@ -145,7 +146,7 @@ class _DoneLabViewState extends State<DoneLabView> {
         chosenTask.loadReadings.forEach((x) {
           if(selectedXAxis=="T")
             xAxisData.add(x.torque);
-          else if(selectedXAxis=="t (czas, kolejne pomiary)")
+          else if(selectedXAxis==xAxisT)
             xAxisData.add(i.toDouble());
           else{
             xAxisData.add((x.reading.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==selectedXAxis).readingJsonKey}"]));
@@ -155,7 +156,7 @@ class _DoneLabViewState extends State<DoneLabView> {
         break;
       case EngineState.idle:
         chosenTask.idleReadings.forEach((x) {
-          if(selectedXAxis=="t (czas, kolejne pomiary)")
+          if(selectedXAxis==xAxisT)
             xAxisData.add(chosenTask.idleReadings.indexOf(x).toDouble());
           else
             xAxisData.add((x.reading.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==selectedXAxis).readingJsonKey}"]));
@@ -339,13 +340,13 @@ class _DoneLabViewState extends State<DoneLabView> {
     return DropdownButtonHideUnderline(
       child: DropdownButton<String>(
         items: engineState == EngineState.idle
-            ? idleSymbols.where((x) => x!="t (czas, kolejne pomiary)").map((e) {
+            ? idleSymbols.where((x) => x!=xAxisT).map((e) {
           return DropdownMenuItem(
             value: e,
             child: Text(e),
           );
         }).toList()
-            : loadSymbols.where((x) => x!="t (czas, kolejne pomiary)").map((e) {
+            : loadSymbols.where((x) => x!=xAxisT).map((e) {
           return DropdownMenuItem(
             value: e,
             child: Text(e),
