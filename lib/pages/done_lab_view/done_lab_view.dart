@@ -1,15 +1,14 @@
-import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_web_chartjs/chartjs.models.dart';
 import 'package:flutter_web_chartjs/chartjs.wrapper.dart';
 import 'package:silnik_app/api/models/lab.dart';
-import 'package:silnik_app/api/models/load_reading.dart';
-import 'package:silnik_app/api/models/reading.dart';
+import 'package:silnik_app/api/models/stat_value.dart';
 import 'package:silnik_app/api/models/task.dart';
 import 'package:silnik_app/components/data_table.dart';
 import 'package:silnik_app/components/empty_view.dart';
+import 'package:silnik_app/data/api_client.dart';
 import 'package:silnik_app/lists.dart';
 import 'package:silnik_app/pages/base_scaffold.dart';
 import 'package:silnik_app/pages/new_lab_view/new_lab_view.dart';
@@ -28,53 +27,49 @@ class DoneLabView extends StatefulWidget {
 class _DoneLabViewState extends State<DoneLabView> {
   Lab lab;
 
-  EngineState engineState;
+  EngineState engineState = EngineState.idle;
 
   _DoneLabViewState(this.lab);
 
   TextTheme textTheme;
-  List<Task> tasks = new List();
+  List<Task> tasks = [];
   Task chosenTask;
-  List<double> xAxisData = new List();
-  List<double> yAxisData = new List();
-  String selectedXAxis = "-";
-  String selectedYAxis = "-";
+  List<double> xAxisData = [];
+  List<double> yAxisData = [];
+
+  List<String> loadSymbols = [];
+  List<String> idleSymbols = [];
+
+  String selectedXAxis;
+  String selectedYAxis;
+
+  bool isLoading = true;
+  RangeValues _currentRangeValues;
 
   @override
   void initState() {
-    tasks = lab.tasks;
     engineState = EngineState.idle;
-    fetchData().then((value) => super.initState());
+    fetchData();
+    super.initState();
+    selectedXAxis = "t (czas, kolejne pomiary)";
+    selectedYAxis = "f";
+    idleSymbols = Lists.statsList.where((x) => !x.loadEngineStateReading).map((e) => e.symbol).toList();
+    idleSymbols.add("t (czas, kolejne pomiary)");
+    loadSymbols = Lists.statsList.map((e) => e.symbol).toList();
+    loadSymbols.add("t (czas, kolejne pomiary)");
   }
 
   Future<void> fetchData() async{
-      Random r = new Random();
-      tasks.forEach((e) {
-        List<LoadReading> loads = List.generate(100, (index) => LoadReading((index + r.nextDouble()),
-            Reading(
-                id: index,
-                voltage: r.nextDouble(),
-                power: (pow(index,2)).toDouble(),
-                statorCurrent: (index+2).toDouble(),
-                rotorCurrent: (index+3).toDouble(),
-                rotationalSpeed: (index+4).toDouble(),
-                powerFrequency: index.toDouble(),
-                timeStamp: DateTime.now(),
-                task: e)));
-        e.loadReadings.addAll(loads);
-        // List<IdleReading> idles = List.generate(100, (index) => IdleReading(
-        //     Reading(
-        //         id: index,
-        //         voltage: r.nextDouble(),
-        //         power: 1,
-        //         statorCurrent: r.nextDouble(),
-        //         rotorCurrent: r.nextDouble(),
-        //         rotationalSpeed: r.nextDouble(),
-        //         powerFrequency: index.toDouble(),
-        //         timeStamp: DateTime.now(),
-        //         task: e)));
-        // e.idleReadings.addAll(idles);
+      setState(() {
+        isLoading = true;
       });
+     ApiClient().getLab(labId: lab.id).then((l){
+       setState(() {
+          lab = l;
+          tasks = l.tasks;
+          isLoading = false;
+       });
+     });
   }
 
   Widget chart(){
@@ -87,6 +82,9 @@ class _DoneLabViewState extends State<DoneLabView> {
           config: ChartConfig(
           type: ChartType.line,
           options: ChartOptions(
+              animationConfiguration: ChartAnimationConfiguration(
+                  duration: Duration(milliseconds: 0)
+              ),
             responsive: true,
             legend: ChartLegend(
                 position: ChartLegendPosition.top
@@ -102,12 +100,11 @@ class _DoneLabViewState extends State<DoneLabView> {
             )
           ),
           data: ChartData(
-              labels: xAxisData.map((e){
-                return e.toStringAsFixed(3);
-              }).toList(),
+              labels: xAxisData.map((e) =>e.toStringAsFixed(selectedXAxis=="t (czas, kolejne pomiary)" ? 0 : 3))
+                  .toList().getRange(_currentRangeValues?.start?.toInt() ?? 0, _currentRangeValues?.end?.toInt() ?? xAxisData.length).toList(),
               datasets: [
                 ChartDataset(
-                    data: yAxisData,
+                    data: yAxisData.getRange(_currentRangeValues?.start?.toInt() ?? 0, _currentRangeValues?.end?.toInt() ?? yAxisData.length).toList(),
                     label: "$selectedYAxis = f($selectedXAxis)",
                     backgroundColor:  Colors.blue.withOpacity(0.4)
                 )
@@ -115,6 +112,57 @@ class _DoneLabViewState extends State<DoneLabView> {
           )
       )),
     );
+  }
+
+  bool isIdleEngineState() => engineState==EngineState.idle;
+
+  void fetchYAxisData(){
+    if(yAxisData.isNotEmpty) yAxisData.clear();
+    switch(engineState){
+      case EngineState.load:
+        chosenTask.loadReadings.forEach((x) {
+          if(selectedYAxis=="T")
+            yAxisData.add(x.torque);
+          else{
+            yAxisData.add((x.reading.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==selectedYAxis).readingJsonKey}"]));
+          }
+        });
+        break;
+      case EngineState.idle:
+        chosenTask.idleReadings.forEach((x) {
+          yAxisData.add((x.reading.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==selectedYAxis).readingJsonKey}"]));
+        });
+        break;
+    }
+    setState(() {});
+  }
+
+  void fetchXAxisData(){
+    if(xAxisData.isNotEmpty) xAxisData.clear();
+    switch(engineState){
+      case EngineState.load:
+        int i = 0;
+        chosenTask.loadReadings.forEach((x) {
+          if(selectedXAxis=="T")
+            xAxisData.add(x.torque);
+          else if(selectedXAxis=="t (czas, kolejne pomiary)")
+            xAxisData.add(i.toDouble());
+          else{
+            xAxisData.add((x.reading.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==selectedXAxis).readingJsonKey}"]));
+          }
+          i++;
+        });
+        break;
+      case EngineState.idle:
+        chosenTask.idleReadings.forEach((x) {
+          if(selectedXAxis=="t (czas, kolejne pomiary)")
+            xAxisData.add(chosenTask.idleReadings.indexOf(x).toDouble());
+          else
+            xAxisData.add((x.reading.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==selectedXAxis).readingJsonKey}"]));
+        });
+        break;
+    }
+    setState(() {});
   }
 
   Widget labAndTaskDetailsCard() {
@@ -167,9 +215,10 @@ class _DoneLabViewState extends State<DoneLabView> {
                                               }).toList(),
                                               onChanged: (value) {
                                                   if (chosenTask==null || value.id != chosenTask?.id) {
+                                                    chosenTask = value;
                                                     setState(() {
-                                                      chosenTask = value;
-                                                      print(chosenTask.toString());
+                                                      fetchXAxisData();
+                                                      fetchYAxisData();
                                                       ToastUtils.showToast(
                                                           "Wybrane ćwiczenie: ${chosenTask.name}");
                                                     });
@@ -195,7 +244,7 @@ class _DoneLabViewState extends State<DoneLabView> {
                 new SelectableText("Data rozpoczęcia: ",
                     style: textTheme.subtitle1),
                 new SelectableText(
-                    DateUtils.formatDateTime(context, lab.date),
+                    MyDateUtils.formatDateTime(context, lab.date),
                     style: textTheme.subtitle1.copyWith(
                         fontWeight: FontWeight.bold))
               ],
@@ -262,40 +311,24 @@ class _DoneLabViewState extends State<DoneLabView> {
   Widget selectXAxis(){
     return DropdownButtonHideUnderline(
       child: DropdownButton<String>(
-        items: engineState==EngineState.idle
-            ? (Lists.statsList.where((x) => !x.loadEngineStateReading).map((e) {
-          return DropdownMenuItem(
-            value: e.symbol,
-            child: Text(e.symbol),
-          );
-        }).toList()..add(DropdownMenuItem(value: "-", child: Text("Oś X"))))
-            : Lists.statsList.map((e) {
-          return DropdownMenuItem(
-            value: e.symbol,
-            child: Text(e.symbol),
-          );
-        }).toList()..add(DropdownMenuItem(value: "-", child: Text("Oś X"))),
+        items: engineState == EngineState.idle
+            ? idleSymbols.map((e) {
+                return DropdownMenuItem(
+                  value: e,
+                  child: Text(e),
+                );
+              }).toList()
+            : loadSymbols.map((e) {
+                return DropdownMenuItem(
+                  value: e,
+                  child: Text(e),
+                );
+              }).toList(),
         value: selectedXAxis,
         onChanged: (value){
           setState(() {
             selectedXAxis=value;
-            if(xAxisData.isNotEmpty) xAxisData.clear();
-            switch(engineState){
-              case EngineState.load:
-                chosenTask.loadReadings.forEach((x) {
-                  if(selectedXAxis=="T")
-                    xAxisData.add(x.torque);
-                  else{
-                    xAxisData.add((x.reading.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==value).readingJsonKey}"]));
-                  }
-                });
-                break;
-              case EngineState.idle:
-                chosenTask.idleReadings.forEach((x) {
-                  xAxisData.add((x.reading.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==value).readingJsonKey}"]));
-                });
-                break;
-            }
+            fetchXAxisData();
           });
         },
       ),
@@ -305,40 +338,24 @@ class _DoneLabViewState extends State<DoneLabView> {
   Widget selectYAxis(){
     return DropdownButtonHideUnderline(
       child: DropdownButton<String>(
-        items: engineState==EngineState.idle
-            ? (Lists.statsList.where((x) => !x.loadEngineStateReading).map((e) {
+        items: engineState == EngineState.idle
+            ? idleSymbols.where((x) => x!="t (czas, kolejne pomiary)").map((e) {
           return DropdownMenuItem(
-            value: e.symbol,
-            child: Text(e.symbol),
+            value: e,
+            child: Text(e),
           );
-        }).toList()..add(DropdownMenuItem(value: "-", child: Text("Oś Y"))))
-            : Lists.statsList.map((e) {
+        }).toList()
+            : loadSymbols.where((x) => x!="t (czas, kolejne pomiary)").map((e) {
           return DropdownMenuItem(
-            value: e.symbol,
-            child: Text(e.symbol),
+            value: e,
+            child: Text(e),
           );
-        }).toList()..add(DropdownMenuItem(value: "-", child: Text("Oś Y"))),
+        }).toList(),
         value: selectedYAxis,
         onChanged: (value){
           setState(() {
             selectedYAxis=value;
-            if(yAxisData.isNotEmpty) yAxisData.clear();
-            switch(engineState){
-              case EngineState.load:
-                chosenTask.loadReadings.forEach((x) {
-                  if(selectedYAxis=="T")
-                    yAxisData.add(x.torque);
-                  else{
-                    yAxisData.add((x.reading.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==value).readingJsonKey}"]));
-                  }
-                });
-                break;
-              case EngineState.idle:
-                chosenTask.idleReadings.forEach((x) {
-                  yAxisData.add((x.reading.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==value).readingJsonKey}"]));
-                });
-                break;
-            }
+            fetchYAxisData();
           });
         },
       ),
@@ -352,44 +369,77 @@ class _DoneLabViewState extends State<DoneLabView> {
   @override
   Widget build(BuildContext context) {
     textTheme = Theme.of(context).textTheme;
+
     return SilnikScaffold.get(context,
         body: SingleChildScrollView(
             padding: const EdgeInsets.all(8.0),
-            child: Column(
-              children: [
-                labAndTaskDetailsCard(),
-                chosenTask == null
-                    ? EmptyView(
-                        message: "Nie wczytano zadania",
-                      )
-                    : Column(
-                  children: [
-                    engineStateCard(),
-                          readingsEmpty()
-                              ? EmptyView(message: "Brak danych")
-                              : Column(
-                                  children: [
-                                    CustomPaginatedTable(
-                                      idleReadings: chosenTask.idleReadings,
-                                      loadReadings: chosenTask.loadReadings,
-                                      isIdleSelected:
-                                          engineState == EngineState.idle,
-                                    ),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        selectYAxis(),
-                                        Flexible(child: chart()),
-                                      ],
-                                    ),
-                                    selectXAxis()
-                                  ],
-                                )
-                        ],
-                ),
-              ],
-            )
-        )
-    );
+            child: isLoading
+                ? CircularProgressIndicator()
+                : Column(
+                    children: [
+                      labAndTaskDetailsCard(),
+                      chosenTask == null
+                          ? EmptyView(
+                              message: "Nie wczytano zadania",
+                            )
+                          : Column(
+                              children: [
+                                engineStateCard(),
+                                readingsEmpty()
+                                    ? EmptyView(message: "Brak danych")
+                                    : Column(
+                                        children: [
+                                          CustomPaginatedTable(
+                                            idleReadings: chosenTask.idleReadings,
+                                            loadReadings: chosenTask.loadReadings,
+                                            isIdleSelected: engineState == EngineState.idle,
+                                          ),
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              selectYAxis(),
+                                              Flexible(child: chart()),
+                                            ],
+                                          ),
+                                          selectXAxis(),
+                                          if (xAxisData.isNotEmpty && yAxisData.isNotEmpty)
+                                            Container(
+                                              width: MediaQuery.of(context).size.width*0.7,
+                                              child: RangeSlider(
+                                                values: _currentRangeValues == null
+                                                    ? RangeValues(
+                                                        0,
+                                                        isIdleEngineState()
+                                                            ? chosenTask.idleReadings?.length?.toDouble() ?? 0
+                                                            : chosenTask.loadReadings?.length?.toDouble() ?? 0)
+                                                    : _currentRangeValues,
+                                                min: 0,
+                                                max: xAxisData.length <= 0 ? 1000 : xAxisData.length,
+                                                divisions: (xAxisData.length <= 0 ? 1000 : xAxisData.length) ~/ 10,
+                                                labels: RangeLabels(
+                                                  (_currentRangeValues == null
+                                                          ? ((isIdleEngineState()
+                                                                      ? chosenTask.idleReadings
+                                                                      : chosenTask.loadReadings)?.length?.toDouble() ?? 0)
+                                                          : _currentRangeValues.start.round()).toString(),
+                                                  (_currentRangeValues == null
+                                                          ? ((isIdleEngineState()
+                                                                      ? chosenTask.idleReadings
+                                                                      : chosenTask.loadReadings)?.length?.toDouble() ?? 0)
+                                                          : _currentRangeValues.end.round()).toString(),
+                                                ),
+                                                onChanged: (RangeValues values) {
+                                                  setState(() {
+                                                    _currentRangeValues = values;
+                                                  });
+                                                },
+                                              ),
+                                            ),
+                                        ],
+                                      )
+                              ],
+                            ),
+                    ],
+                  )));
   }
 }

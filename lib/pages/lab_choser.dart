@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:silnik_app/api/models/lab.dart';
+import 'package:silnik_app/data/api_client.dart';
 
 import 'package:silnik_app/utils/date_utils.dart';
 
@@ -23,17 +24,29 @@ class _LabChooserState extends State<LabChooser> {
 
   Lab newLab;
   TextEditingController labNameController;
-  List<Lab> labs = Lists.labs;
+  List<Lab> labs = [];
+
+  bool isLoading;
 
   @override
   void initState() {
+    fetchLabsList();
+    super.initState();
     newLab = new Lab.empty();
     labNameController = new TextEditingController();
     newLab.date = DateTime.now();
     initializeDateFormatting();
-    super.initState();
   }
 
+  void fetchLabsList(){
+    setState(() {
+      isLoading = true;
+    });
+    ApiClient().getLabsList().then((value) => setState((){
+      labs.addAll(value);
+      isLoading = false;
+    }));
+  }
 
   List<Lab> getLabsList(){
     List<Lab> l = labs;
@@ -61,14 +74,14 @@ class _LabChooserState extends State<LabChooser> {
           child: Card(
             child: Padding(
               padding: const EdgeInsets.all(15.0),
-              child: Column(
+              child:  Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   Text("Wczytaj laboratorium", style: textTheme.headline6),
                   Container(
                     margin: EdgeInsets.symmetric(vertical: 8),
-                    child: Column(
+                    child:  isLoading ? CircularProgressIndicator() : Column(
                       children: [
                         new Row(
                           children: [
@@ -162,7 +175,7 @@ class _LabChooserState extends State<LabChooser> {
                             child: ListTile(
                               title: Text(l.name),
                               subtitle: Text(
-                                  DateUtils.formatDateTime(context, l.date)),
+                                  MyDateUtils.formatDateTime(context, l.date)),
                               leading: Icon(Icons.assessment_outlined),
                             ),
                           );

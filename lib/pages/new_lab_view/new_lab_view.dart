@@ -4,15 +4,21 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_web_chartjs/chartjs.models.dart';
+import 'package:flutter_web_chartjs/chartjs.wrapper.dart';
 import 'package:silnik_app/api/models/idle_reading.dart';
 import 'package:silnik_app/api/models/lab.dart';
 import 'package:silnik_app/api/models/load_reading.dart';
 import 'package:silnik_app/api/models/reading.dart';
 import 'package:silnik_app/api/models/task.dart';
+import 'package:silnik_app/components/create_task_dialog.dart';
 import 'package:silnik_app/components/data_table.dart';
 import 'package:silnik_app/components/empty_view.dart';
 import 'package:silnik_app/components/expandable_card.dart';
+import 'package:silnik_app/components/stat_value_card.dart';
+import 'package:silnik_app/data/api_client.dart';
 import 'package:silnik_app/pages/base_scaffold.dart';
+import 'package:silnik_app/utils/consts.dart';
 import 'package:silnik_app/utils/date_utils.dart';
 import 'package:silnik_app/utils/dialog_utils.dart';
 import 'package:silnik_app/utils/toast_utils.dart';
@@ -30,6 +36,12 @@ class MainLabView extends StatefulWidget {
 class _MainLabViewState extends State<MainLabView> {
 
   Lab lab;
+
+  String selectedYAxis = "U";
+  List<double> yAxisData = new List();
+
+  int _currentSliderValue = 50;
+
   _MainLabViewState(this.lab);
 
   TextTheme textTheme;
@@ -57,12 +69,7 @@ class _MainLabViewState extends State<MainLabView> {
   EngineState engineState = EngineState.idle;
 
   //algorithms
-  Map<String,String> algorithms = {
-    "VFC open loop, linear": "Skalarny (U/f=  const), charakterystyka liniowa",
-    "VFC open loop, quadratic": "Skalarny (U/f = const), charakterystyka kwadratowa",
-    "SLVC (sensorless vector control": "Wektorowy bez sprzężenia zwrotnego",
-    "SM ASM (servo control for asynchronous motors)": "Wektorowy ze sprzężeniem zwrotnym"
-  };
+  Map<String,String> algorithms = Const.algorithms;
   String code;
 
   //macro
@@ -81,12 +88,21 @@ class _MainLabViewState extends State<MainLabView> {
   final _macroTimeSubLoopKey = GlobalKey<FormState>();
 
   @override
+  void dispose() {
+    _timer.cancel();
+    _fetchTimer.cancel();
+    _subLoopTimer.cancel();
+    _labDuration.cancel();
+    super.dispose();
+  }
+
+  @override
   void initState() {
     code = algorithms.keys.first;
+
     Lists.statsList.forEach((element) {
       statValueChangeTextController[element.symbol] = TextEditingController();
       statValueChangeTextController[element.symbol].text = 0.toString();
-
 
       //macro values: from, step, to
       macroChangeControllerValue[element.symbol] = [TextEditingController(), TextEditingController(), TextEditingController()];
@@ -123,24 +139,45 @@ class _MainLabViewState extends State<MainLabView> {
   bool isLoadEngineState() => engineState==EngineState.load;
 
   void _startMacro() {
-    fetchData();
     macrosDone = 0;
-    switch(engineState){
-      case EngineState.load:
-        if(macroChangeTextCheckBox["f"]) 
-          chosenTask.loadReadings.last.reading.powerFrequency = double.parse(macroChangeControllerValue["f"][0].text);
-        else if(macroChangeTextCheckBox["T"])
-          chosenTask.loadReadings.last.torque = double.parse(macroChangeControllerValue["T"][0].text);
-        break;
-      case EngineState.idle:
-        chosenTask.idleReadings.last.reading.powerFrequency = double.parse(macroChangeControllerValue["f"][0].text);
-        break;
-    }
     if(addSubLoop && isLoadEngineState()){
       startSubLoop();
       _timer = Timer.periodic(Duration(seconds: 1), (t) {});
     }
     else {
+          switch(engineState){
+      case EngineState.load:
+        if(macroChangeTextCheckBox["f"]) {
+          ApiClient().setValue(
+            engineState: EngineState.load, 
+            chosenTask: chosenTask, 
+            value: {"f" : double.parse(macroChangeControllerValue["f"][0].text)}).then((v){
+          setState(() {
+            chosenTask = v;
+          });
+        });
+        }
+        else if(macroChangeTextCheckBox["T"])
+          ApiClient().setValue(
+            engineState: EngineState.load, 
+            chosenTask: chosenTask, 
+            value: {"T": double.parse(macroChangeControllerValue["T"][0].text)}).then((v){
+          setState(() {
+            chosenTask = v;
+          });
+        });
+        break;
+      case EngineState.idle:
+        ApiClient().setValue(
+          engineState: EngineState.idle, 
+          chosenTask: chosenTask, 
+          value: {"f" : double.parse(macroChangeControllerValue["f"][0].text)}).then((v){
+          setState(() {
+            chosenTask = v;
+          });
+        });
+        break;
+    }
       _timer = Timer.periodic(Duration(seconds: 1), (t) {
         setState(() {
           if (t.tick % int.parse(macroChangeControllerTime.text) == 0)
@@ -151,56 +188,62 @@ class _MainLabViewState extends State<MainLabView> {
     isMacroRunning = true;
   }
 
-  Timer subLoop;
+  Timer _subLoopTimer;
   void startSubLoop() {
-    setState(() {
-      chosenTask.loadReadings.last.torque = double.parse(macroChangeControllerSubLoopValue["T"][0].text);
-    });
-    subLoop = Timer.periodic(Duration(seconds: 1), (t1) {
+      ApiClient().setValue(
+                chosenTask: chosenTask,
+                engineState: engineState,
+                value: {
+                  "T" : double.parse(macroChangeControllerSubLoopValue["T"][0].text),
+                  "f" : macrosDone==0 
+                      ? double.parse(macroChangeControllerValue["f"][0].text) 
+                      : (chosenTask.loadReadings.last.reading.powerFrequency + double.parse(macroChangeControllerValue["f"][1].text) >= double.parse(macroChangeControllerValue["f"][2].text)) 
+                          ? double.parse(macroChangeControllerValue["f"][2].text) 
+                          : chosenTask.loadReadings.last.reading.powerFrequency + double.parse(macroChangeControllerValue["f"][1].text),
+                }).then((value){
+                setState(() {
+                  chosenTask = value;
+                });
+              }); 
+    _subLoopTimer = Timer.periodic(Duration(seconds: 1), (t1) {
       if (t1.tick % int.parse(macroSubLoopChangeControllerTime.text) == 0) {
-        chosenTask.loadReadings.add(
-            LoadReading(chosenTask.loadReadings.last.torque -= double.parse(macroChangeControllerSubLoopValue["T"][1].text),
-                Reading(
-                    id: chosenTask.loadReadings.length + 1,
-                    voltage: Random().nextDouble(),
-                    power: Random().nextDouble(),
-                    statorCurrent: Random().nextDouble(),
-                    rotorCurrent: Random().nextDouble(),
-                    rotationalSpeed: Random().nextDouble(),
-                    powerFrequency: chosenTask.loadReadings.last.reading
-                        .powerFrequency,
-                    timeStamp: DateTime.now(),
-                    task: chosenTask)));
         setState(() {
-          if ((chosenTask.loadReadings.last.torque += double.parse(macroChangeControllerSubLoopValue["T"][1].text))
+          if ((chosenTask.loadReadings.last.torque + double.parse(macroChangeControllerSubLoopValue["T"][1].text))
               > double.parse(macroChangeControllerSubLoopValue["T"][2].text))
-            chosenTask.loadReadings.last.torque = double.parse(macroChangeControllerSubLoopValue["T"][2].text);
+            ApiClient().setValue(
+              chosenTask: chosenTask,
+              engineState: engineState,
+              value: {
+                "T" : double.parse(macroChangeControllerSubLoopValue["T"][2].text),
+                "f" : chosenTask.loadReadings.last.reading.powerFrequency 
+                }).then((value){
+              setState(() {
+                  chosenTask = value;
+                });
+              });
           else
-            chosenTask.loadReadings.last.torque += double.parse(macroChangeControllerSubLoopValue["T"][1].text);
+            ApiClient().setValue(
+              chosenTask: chosenTask,
+              engineState: engineState,
+              value: {
+                "T" : chosenTask.loadReadings.last.torque + double.parse(macroChangeControllerSubLoopValue["T"][1].text),
+                "f" : chosenTask.loadReadings.last.reading.powerFrequency 
+                }).then((value){
+              setState(() {
+                  chosenTask = value;
+                });
+              });
           ToastUtils.showToast(
               "Wykonano podrzędną pętlę makra T = ${chosenTask.loadReadings.last.torque} "
                   "dla f = ${chosenTask.loadReadings.last.reading.powerFrequency}");
 
           if (chosenTask.loadReadings.last.torque >= double.parse(macroChangeControllerSubLoopValue["T"][2].text)) {
-            subLoop.cancel();
-            Future.delayed(Duration(seconds: int.parse(macroChangeControllerTime.text)), () {
-              chosenTask.loadReadings.add(
-                  LoadReading(chosenTask.loadReadings.last.torque,
-                      Reading(
-                          id: chosenTask.loadReadings.length + 1,
-                          voltage: Random().nextDouble(),
-                          power: Random().nextDouble(),
-                          statorCurrent: Random().nextDouble(),
-                          rotorCurrent: Random().nextDouble(),
-                          rotationalSpeed: Random().nextDouble(),
-                          powerFrequency:
-                          chosenTask.loadReadings.last.reading.powerFrequency += double.parse(macroChangeControllerValue["f"][1].text),
-                          timeStamp: DateTime.now(),
-                          task: chosenTask)));
-              if (chosenTask.loadReadings.last.reading.powerFrequency >
-                  double.parse(macroChangeControllerSubLoopValue["f"][2].text))
+            _subLoopTimer.cancel();
+            macrosDone+=1;
+            if (chosenTask.loadReadings.last.reading.powerFrequency >= double.parse(macroChangeControllerValue["f"][2].text))
                 _stopMacro();
-              else
+            else
+              Future.delayed(Duration(seconds: int.parse(macroChangeControllerTime.text)), () {       
                 startSubLoop();
             });
           }
@@ -220,23 +263,28 @@ class _MainLabViewState extends State<MainLabView> {
         if (macroChangeTextCheckBox["f"]) {
           macrosDone += 1;
           if (macroChangeControllerValue["f"].every((x) => x != null) && macroChangeControllerValue["f"].every((x) => x.value.text != ""))
-            chosenTask.loadReadings.add(LoadReading(Random().nextDouble(),
-                Reading(
-                    id: chosenTask.loadReadings.length+1,
-                    voltage: Random().nextDouble(),
-                    power: Random().nextDouble(),
-                    statorCurrent: Random().nextDouble(),
-                    rotorCurrent: Random().nextDouble(),
-                    rotationalSpeed: Random().nextDouble(),
-                    powerFrequency:  chosenTask.loadReadings.last.reading.powerFrequency-=double.parse(macroChangeControllerValue["f"][1].text),
-                    timeStamp: DateTime.now(),
-                    task: chosenTask)));
             setState(() {
-              if ((chosenTask.loadReadings.last.reading.powerFrequency += double.parse(macroChangeControllerValue["f"][1].text)) >
-                  double.parse(macroChangeControllerValue["f"][2].value.text))
-                chosenTask.loadReadings.last.reading.powerFrequency = double.parse(macroChangeControllerValue["f"][2].text);
-              else
-                chosenTask.loadReadings.last.reading.powerFrequency += double.parse(macroChangeControllerValue["f"][1].text);
+              if ((chosenTask.loadReadings.last.reading.powerFrequency + double.parse(macroChangeControllerValue["f"][1].text)) >
+                  double.parse(macroChangeControllerValue["f"][2].value.text)){
+                    ApiClient().setValue(
+                      engineState: EngineState.load, 
+                      chosenTask: chosenTask, 
+                      value: {"f" : double.parse(macroChangeControllerValue["f"][2].text)}).then((v){
+                      setState(() {
+                        chosenTask = v;
+                        });
+                      });
+                  }
+              else{
+                ApiClient().setValue(
+                  engineState: EngineState.load, 
+                  chosenTask: chosenTask, 
+                  value: {"f" : chosenTask.loadReadings.last.reading.powerFrequency + double.parse(macroChangeControllerValue["f"][1].text)}).then((v){
+                      setState(() {
+                        chosenTask = v;
+                      });
+                    });
+              }
               if (chosenTask.loadReadings.last.reading.powerFrequency >= double.parse(macroChangeControllerValue["f"][2].value.text))
                 _stopMacro();
             });
@@ -244,23 +292,26 @@ class _MainLabViewState extends State<MainLabView> {
         } else if(macroChangeTextCheckBox["T"]) {
             macrosDone += 1;
             if (macroChangeControllerValue["T"].every((x) => x != null) && macroChangeControllerValue["T"].every((x) => x.value.text != ""))
-              chosenTask.loadReadings.add(LoadReading(chosenTask.loadReadings.last.torque-=double.parse(macroChangeControllerValue["T"][1].text),
-                  Reading(
-                      id: chosenTask.loadReadings.length+1,
-                      voltage: Random().nextDouble(),
-                      power: Random().nextDouble(),
-                      statorCurrent: Random().nextDouble(),
-                      rotorCurrent: Random().nextDouble(),
-                      rotationalSpeed: Random().nextDouble(),
-                      powerFrequency:  Random().nextDouble(),
-                      timeStamp: DateTime.now(),
-                      task: chosenTask)));
               setState(() {
-                if ((chosenTask.loadReadings.last.torque += double.parse(macroChangeControllerValue["T"][1].text)) >
+                if ((chosenTask.loadReadings.last.torque + double.parse(macroChangeControllerValue["T"][1].text)) >
                     double.parse(macroChangeControllerValue["T"][2].value.text))
-                  chosenTask.loadReadings.last.torque = double.parse(macroChangeControllerValue["T"][2].text);
+                  ApiClient().setValue(
+                      engineState: EngineState.load, 
+                      chosenTask: chosenTask, 
+                      value: {"T" : double.parse(macroChangeControllerValue["T"][2].text)}).then((v){
+                      setState(() {
+                        chosenTask = v;
+                        });
+                      });
                 else
-                  chosenTask.loadReadings.last.torque += double.parse(macroChangeControllerValue["T"][1].text);
+                  ApiClient().setValue(
+                      engineState: EngineState.load, 
+                      chosenTask: chosenTask, 
+                      value: {"T" : chosenTask.loadReadings.last.torque + double.parse(macroChangeControllerValue["T"][1].text)}).then((v){
+                      setState(() {
+                        chosenTask = v;
+                        });
+                      });
                 if (chosenTask.loadReadings.last.torque >= double.parse(macroChangeControllerValue["T"][2].value.text))
                   _stopMacro();
               });
@@ -269,35 +320,39 @@ class _MainLabViewState extends State<MainLabView> {
         break;
       case EngineState.idle:
           macrosDone += 1;
+          print("last value 1 = ${chosenTask.idleReadings.last.reading.powerFrequency}");
           if (macroChangeControllerValue["f"].every((x) => x != null) && macroChangeControllerValue["f"].every((x) => x.value.text != ""))
-            chosenTask.idleReadings.add(IdleReading(
-                Reading(
-                    id: chosenTask.idleReadings.length+1,
-                    voltage: Random().nextDouble(),
-                    power: Random().nextDouble(),
-                    statorCurrent: Random().nextDouble(),
-                    rotorCurrent: Random().nextDouble(),
-                    rotationalSpeed: Random().nextDouble(),
-                    powerFrequency:  chosenTask.idleReadings.last.reading.powerFrequency-=double.parse(macroChangeControllerValue["f"][1].text),
-                    timeStamp: DateTime.now(),
-                    task: chosenTask)));
-            setState(() {
-              if ((chosenTask.idleReadings.last.reading.powerFrequency += double.parse(macroChangeControllerValue["f"][1].text)) >
+              if ((chosenTask.idleReadings.last.reading.powerFrequency + double.parse(macroChangeControllerValue["f"][1].text)) >
                   double.parse(macroChangeControllerValue["f"][2].value.text))
-                chosenTask.idleReadings.last.reading.powerFrequency = double.parse(macroChangeControllerValue["f"][2].text);
-              else
-                chosenTask.idleReadings.last.reading.powerFrequency += double.parse(macroChangeControllerValue["f"][1].text);
+                ApiClient().setValue(
+                      engineState: EngineState.idle, 
+                      chosenTask: chosenTask, 
+                      value: {"f" : double.parse(macroChangeControllerValue["f"][2].text)}).then((v){
+                      setState(() {
+                        chosenTask = v;
+                        });
+                      });
+              else{         
+                ApiClient().setValue(
+                      engineState: EngineState.idle, 
+                      chosenTask: chosenTask, 
+                      value: {"f" : chosenTask.idleReadings.last.reading.powerFrequency + double.parse(macroChangeControllerValue["f"][1].text)}).then((v){
+                      setState(() {
+                        chosenTask = v;
+                        });
+                      });
+              }
               if (chosenTask.idleReadings.last.reading.powerFrequency >= double.parse(macroChangeControllerValue["f"][2].value.text))
                 _stopMacro();
-            });
           ToastUtils.showToast("Wykonano makro, ustawiono f = ${chosenTask.idleReadings.last.reading.powerFrequency}");
         break;
     }
   }
 
+  //Pobieranie danych
   Timer _fetchTimer;
   bool isFetchingPeriodically = false;
-
+  
   void _startFetchingData() {
     _fetchTimer = Timer.periodic(Duration(seconds: 1), (t) {
       setState(() {
@@ -318,82 +373,16 @@ class _MainLabViewState extends State<MainLabView> {
   }
 
   void fetchData() {
-    Random r = new Random();
-    if (engineState == EngineState.idle) {
+    ApiClient().fetchData(engineState: engineState, chosenTask: chosenTask).then((value){
+      ToastUtils.showToast("Pobrano dane");
       setState(() {
-        chosenTask.idleReadings.add(IdleReading(
-            Reading(
-                id: chosenTask.idleReadings.length+1,
-                voltage: r.nextDouble(),
-                power: r.nextDouble(),
-                statorCurrent: r.nextDouble(),
-                rotorCurrent: r.nextDouble(),
-                rotationalSpeed: r.nextDouble(),
-                powerFrequency: r.nextDouble(),
-                timeStamp: DateTime.now(),
-                task: chosenTask))
-        );
+        chosenTask = value;
       });
-    } else {
-      setState(() {
-        chosenTask.loadReadings.add(LoadReading(r.nextDouble(),
-            Reading(
-                id: chosenTask.idleReadings.length+1,
-                voltage: r.nextDouble(),
-                power: r.nextDouble(),
-                statorCurrent: r.nextDouble(),
-                rotorCurrent: r.nextDouble(),
-                rotationalSpeed: r.nextDouble(),
-                powerFrequency: r.nextDouble(),
-                timeStamp: DateTime.now(),
-                task: chosenTask))
-        );
-      });
-    }
-    ToastUtils.showToast("Pobrano dane");
+    });
   }
+  //Koniec sekcji pobierania danych
 
-  Widget statValue(StatValue stat, double value) {
-    return Row(
-      children: [
-        Expanded(
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(15.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: TextFormField(
-                          controller: TextEditingController(text: value==null
-                              ? "-" : "${value.toStringAsFixed(stat.precision)}"),
-                          readOnly: true,
-                          textAlign: TextAlign.center,
-                          decoration: InputDecoration(
-                            suffix: Container(
-                                width: 40,
-                                child: Text(stat.unit)),
-                            isDense: true,
-                            prefix: Container(
-                                width: 40,
-                                child: Text(stat.symbol)),
-                            labelText: stat.desc,
-                            border: OutlineInputBorder()
-                          ),
-                          style: textTheme.subtitle1),
-                    ),
-                  )
-                ],
-              ),
-            ),
-          ),
-        )
-      ],
-    );
-  }
+  Widget statValue(StatValue stat, double value) => StatCard(stat: stat, value: value);
 
   Widget customTextField({StatValue stat, TextEditingController controller,
     bool enabled, String suffixText, String prefixText, String labelText,
@@ -729,25 +718,33 @@ class _MainLabViewState extends State<MainLabView> {
                   children: [
                     Expanded(
                       child: FlatButton(
-                        onPressed: isMacroRunning || (statValueChangeTextCheckBox.values.every((x) => !x) || (isIdleEngineState() ? chosenTask.idleReadings.isEmpty : chosenTask.loadReadings.isEmpty))
+                        onPressed: isMacroRunning || (statValueChangeTextCheckBox.values.every((x) => !x))
                             ? null
                             : () {
-                          fetchData();
                           if (_changeValuesCardKey.currentState.validate())
                             setState(() {
                               if(statValueChangeTextCheckBox["f"]){
-                                switch(engineState){
-                                  case EngineState.load:
-                                    chosenTask.loadReadings.last.reading.powerFrequency = double.parse(statValueChangeTextController["f"].value.text);
-                                    break;
-                                  case EngineState.idle:
-                                    chosenTask.idleReadings.last.reading.powerFrequency = double.parse(statValueChangeTextController["f"].value.text);
-                                    break;
-                                }
+                                 ApiClient().setValue(
+                                      chosenTask: chosenTask,
+                                      engineState: engineState,
+                                      value: {"f" : double.parse(statValueChangeTextController["f"].value.text)}
+                                    ).then((value){
+                                      setState(() {
+                                        chosenTask = value;
+                                      });
+                                    });
                                 ToastUtils.showToast("Zmieniono wartość częstotliwości na: ${double.parse(statValueChangeTextController["f"].value.text)}");
                               }
                               if(statValueChangeTextCheckBox["T"] && isLoadEngineState()){
-                                chosenTask.loadReadings.last.torque = double.parse(statValueChangeTextController["T"].value.text);
+                                ApiClient().setValue(
+                                      chosenTask: chosenTask,
+                                      engineState: engineState,
+                                      value: {"T" : double.parse(statValueChangeTextController["T"].value.text)}
+                                    ).then((value){
+                                      setState(() {
+                                        chosenTask = value;
+                                      });
+                                    });
                                 ToastUtils.showToast("Zmieniono wartość momentu na: ${double.parse(statValueChangeTextController["T"].value.text)}");
                               }
                             });
@@ -1168,8 +1165,8 @@ class _MainLabViewState extends State<MainLabView> {
 
   Widget historicalDataTableCard(){
     return CustomPaginatedTable(
-      idleReadings: chosenTask.idleReadings,
-      loadReadings: chosenTask.loadReadings,
+      idleReadings: chosenTask.idleReadings.reversed.toList(),
+      loadReadings: chosenTask.loadReadings.reversed.toList(),
       isIdleSelected: engineState == EngineState.idle,);
   }
 
@@ -1200,6 +1197,99 @@ class _MainLabViewState extends State<MainLabView> {
     );
   }
 
+  Widget selectYAxis(){
+    return FlatButton(
+      onPressed: (){},
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          isExpanded: true,
+          items: isIdleEngineState()
+              ? (Lists.statsList.where((x) => !x.loadEngineStateReading).map((e) {
+            return DropdownMenuItem(
+              value: e.symbol,
+              child: Text(e.symbol),
+            );
+          }).toList())
+              : Lists.statsList.map((e) {
+            return DropdownMenuItem(
+              value: e.symbol,
+              child: Text(e.symbol, textAlign: TextAlign.center,),
+            );
+          }).toList(),
+          value: selectedYAxis,
+          onChanged: (value){
+            setState(() {
+              selectedYAxis=value;
+              if(yAxisData.isNotEmpty) yAxisData.clear();
+              switch(engineState){
+                case EngineState.load:
+                  chosenTask.loadReadings.forEach((x) {
+                    if(selectedYAxis.toLowerCase()=="T".toLowerCase())
+                      yAxisData.add(x.torque);
+                    else{
+                      yAxisData.add((x.reading.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==value).readingJsonKey}"]));
+                    }
+                  });
+                  break;
+                case EngineState.idle:
+                  chosenTask.idleReadings.forEach((x) {
+                    yAxisData.add((x.reading.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==value).readingJsonKey}"]));
+                  });
+                  break;
+              }
+            });
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget chart(){
+    int length = isIdleEngineState() ? chosenTask.idleReadings.length : chosenTask.loadReadings.length;
+    return Container(
+      width: (MediaQuery.of(context).size.width/2),
+      height: MediaQuery.of(context).size.width*0.4,
+      margin: EdgeInsets.symmetric(vertical: 15),
+      child: ChartJS(
+          id: 'my-chart',
+          config: ChartConfig(
+              type: ChartType.line,
+              options: ChartOptions(
+                  responsive: true,
+                  animationConfiguration: ChartAnimationConfiguration(
+                    duration: Duration(milliseconds: 0)
+                  ),
+                  legend: ChartLegend(
+                      position: ChartLegendPosition.top
+                  ),
+                  tooltip: ChartTooltip(
+                      intersect: false,
+                      mode: ChartTooltipMode.point,
+                      callbacks: ChartCallbacks(
+                          label: (ChartTooltipItem tooltip) {
+                            return double.parse(tooltip.value).toStringAsFixed(3);
+                          }
+                      )
+                  )
+              ),
+              data: ChartData(
+                  labels: (isIdleEngineState() ? chosenTask.idleReadings : chosenTask.loadReadings).map((e){
+                    return (isIdleEngineState() ? chosenTask.idleReadings : chosenTask.loadReadings).indexOf(e).toString();
+                  }).toList().getRange(length - _currentSliderValue <= 0 ? 0 : length - _currentSliderValue, length).toList(),
+                  datasets: [
+                    ChartDataset(
+                      label: selectedYAxis,
+                        data: (isIdleEngineState() ? chosenTask.idleReadings : chosenTask.loadReadings).map((dynamic x){
+                          return selectedYAxis == "T" ? x.torque : x.reading.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==selectedYAxis).readingJsonKey}"];
+                        }).toList().getRange(length - _currentSliderValue <= 0 ? 0 : length - _currentSliderValue, length).toList(),
+                        backgroundColor: Colors.blue.withOpacity(0.4),
+                    )
+                  ]
+              )
+          )),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     textTheme = Theme.of(context).textTheme;
@@ -1214,7 +1304,7 @@ class _MainLabViewState extends State<MainLabView> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   new SelectableText("Data rozpoczęcia", style: textTheme.subtitle2.copyWith(color: Colors.white)),
-                  new SelectableText(DateUtils.formatDateTime(context, lab.date), style: textTheme.subtitle1.copyWith(color: Colors.white))
+                  new SelectableText(MyDateUtils.formatDateTime(context, lab.date), style: textTheme.subtitle1.copyWith(color: Colors.white))
                 ],
               ),
             ),
@@ -1230,62 +1320,102 @@ class _MainLabViewState extends State<MainLabView> {
                         message: "Nie wczytano zadania",
                       )
                     : Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 3,
-                              child: Column(children: [
-                                engineStateCard(),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Card(
-                                        child: new Container(
-                                          height: 750,
-                                          child: MaterialApp(
-                                            debugShowCheckedModeBanner: false,
-                                            builder: (context, child){
-                                              return DefaultTabController(
-                                                  length: 2,
-                                                  child: Column(
-                                                    children: [
-                                                      new TabBar(
-                                                        indicatorColor: Colors.blue,
-                                                        indicatorWeight: 2,
-                                                        tabs: [
-                                                          Padding(
-                                                            padding: const EdgeInsets.all(8.0),
-                                                            child: Text("Odczyty bieżące",  textAlign: TextAlign.center,
-                                                                style: Theme.of(context).textTheme.headline6),
-                                                          ),
-                                                          Padding(
-                                                            padding: const EdgeInsets.all(8.0),
-                                                            child: new Text("Historia odczytów",  textAlign: TextAlign.center,
-                                                                style: Theme.of(context).textTheme.headline6),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      Flexible(
-                                                        child: Padding(
-                                                          padding: const EdgeInsets.all(8.0),
-                                                          child: TabBarView(
-                                                            children: [
-                                                              latestDataCard(),
-                                                              historicalDataTableCard(),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ));
-                                            },
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                  ],
-                                )
-                          ])),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                        flex: 3,
+                        child: Column(children: [
+                          engineStateCard(),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Card(
+                                  child: new Container(
+                                    height: 800,
+                                    child: MaterialApp(
+                                      debugShowCheckedModeBanner: false,
+                                      builder: (context, child) {
+                                        return DefaultTabController(
+                                            length: 3,
+                                            child: Column(
+                                              children: [
+                                                new TabBar(
+                                                  indicatorColor: Colors.blue,
+                                                  indicatorWeight: 2,
+                                                  tabs: [
+                                                    Padding(
+                                                      padding: const EdgeInsets.all(8.0),
+                                                      child: Text(
+                                                          "Odczyty bieżące",
+                                                          textAlign: TextAlign.center,
+                                                          style: Theme.of(context).textTheme.headline6),
+                                                    ),
+                                                    Padding(
+                                                      padding: const EdgeInsets.all(8.0),
+                                                      child: new Text(
+                                                          "Historia odczytów",
+                                                          textAlign: TextAlign.center,
+                                                          style: Theme.of(context).textTheme.headline6),
+                                                    ),
+                                                    Padding(
+                                                      padding: const EdgeInsets.all(8.0),
+                                                      child: new Text(
+                                                          "Wykresy danych",
+                                                          textAlign: TextAlign.center,
+                                                          style: Theme.of(context).textTheme.headline6),
+                                                    ),
+                                                  ],
+                                                ),
+                                                Flexible(
+                                                  child: Padding(
+                                                    padding: const EdgeInsets
+                                                        .all(8.0),
+                                                    child: TabBarView(
+                                                      children: [
+                                                        latestDataCard(),
+                                                        historicalDataTableCard(),
+                                                        Column(
+                                                          children: [
+                                                            Row(
+                                                              children: [
+                                                                Expanded(child: selectYAxis()),
+                                                                Expanded(
+                                                                  flex: 3,
+                                                                  child: Slider(
+                                                                    value: _currentSliderValue.toDouble(),
+                                                                    min: 10,
+                                                                    max: 250,
+                                                                    divisions: 240 ~/ 10,
+                                                                    label: _currentSliderValue.round().toString(),
+                                                                    onChanged: (double value) {
+                                                                      setState(() {
+                                                                        _currentSliderValue = value.toInt();
+                                                                      });
+                                                                    },
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                            Text(
+                                                                "Pokazuj ostanie: $_currentSliderValue pomiarów na wykresie",
+                                                                style: textTheme.subtitle1),
+                                                            chart(),
+                                                          ],
+                                                        )
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ));
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              )
+                            ],
+                          )
+                        ])),
                           Expanded(
                             flex: 2,
                             child: Column(children: [
@@ -1301,87 +1431,28 @@ class _MainLabViewState extends State<MainLabView> {
             )));
   }
 
-  TextEditingController labNameController;
-  _showAddTaskDialog() async {
-
-    _showDialogLoadCreatedTask() async {
-      DialogUtils.showYesNoDialog(
-          context, "Wczytać dodane ćwiczenie?",
-          yesFunction: () {
-            chosenTask = tasks.last;
-            _stopMacro();
-            _stopFetchingData();
-            ToastUtils.showToast("Wybrane ćwiczenie: ${chosenTask.name}");
-      });
-    }
-
-    labNameController = TextEditingController(text: "Nowe ćwiczenie".toString());
-    await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context){
-        return AlertDialog(
-          contentPadding: const EdgeInsets.all(16.0),
-          content: new Row(
-            children: <Widget>[
-              new Expanded(
-                child: TextFormField(
-                  maxLines: 1,
-                  textAlign: TextAlign.left,
-                  autofocus: false,
-                  decoration: InputDecoration(
-                      labelText: "Podaj tytuł nowego ćwiczenia" ?? "",
-                      border: OutlineInputBorder()),
-                  controller: labNameController,
-                )
-              )
-            ],
-          ),
-          actions: <Widget>[
-            new FlatButton(
-                child: Row(
-                  children: [
-                    Icon(Icons.clear, color: Colors.red),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text("Anuluj".toUpperCase(), style: textTheme.button.copyWith(color: Colors.red)),
-                    )
-                  ],
-                ),
-                onPressed: () {
-                  Navigator.pop(context, false);
-                }),
-            new FlatButton(
-                child: Row(
-                  children: [
-                    Icon(Icons.add, color: Colors.black),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text("Utwórz".toUpperCase(), style: textTheme.button.copyWith(color: Colors.black)),
-                    )
-                  ],
-                ),
-                onPressed: labNameController.value.text!="" ? () {
-                  Navigator.pop(context, true);
-                  } : null)
-          ],
-        );
-      }
-    ).then((value){
-      if(value!=null && value) {
+  _showAddTaskDialog() async => AddTaskDialog.showAddTaskDialog(context).then((value){
+      if(value!=null) 
+      {
         List<IdleReading> idleReadings = new List();
         List<LoadReading> loadReadings = new List();
-        tasks.add(Task(tasks.length + 1, labNameController.value.text,
-            idleReadings, loadReadings, lab));
-        labNameController.clear();
+        tasks.add(Task(tasks.length + 1, value, idleReadings, loadReadings, lab));
         if (tasks.length == 1) {
           chosenTask = tasks.first;
           ToastUtils.showToast("Wybrane ćwiczenie: ${chosenTask.name}");
-          print("sadsadsadasdsa ${chosenTask.toString()}");
         }
-        else _showDialogLoadCreatedTask();
+        else {
+          DialogUtils.showYesNoDialog(
+            context, "Wczytać dodane ćwiczenie?",
+            yesFunction: () {
+              chosenTask = tasks.last;
+              _stopMacro();
+              _stopFetchingData();
+              ToastUtils.showToast("Wybrane ćwiczenie: ${chosenTask.name}");
+          });
+        }
       }
     });
-  }
 }
 
 enum ChangeValueType {offset, fixed}

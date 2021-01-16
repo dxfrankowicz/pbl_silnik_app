@@ -25,7 +25,7 @@ dependencies:
     sdk: flutter
   build_runner:
   json_annotation:
-  intl: ^0.16.1
+  intl:
   flutter_localizations:
     sdk: flutter
 
@@ -36,7 +36,7 @@ dependencies:
   responsive_framework: ^0.0.14
   fluro: ^1.7.8
   fluttertoast: ^7.1.5
-  flutter_web_chartjs: ^0.2.5
+  flutter_web_chartjs: ^0.2.6-beta
   fl_chart: ^0.12.0
 
 dev_dependencies:
