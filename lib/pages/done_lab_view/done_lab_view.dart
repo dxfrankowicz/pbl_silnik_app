@@ -50,8 +50,8 @@ class _DoneLabViewState extends State<DoneLabView> {
   @override
   void initState() {
     engineState = EngineState.idle;
-    fetchData();
     super.initState();
+    fetchData();
     selectedXAxis = xAxisT;
     selectedYAxis = "f";
     idleSymbols = Lists.statsList.where((x) => !x.loadEngineStateReading).map((e) => e.symbol).toList();
@@ -64,12 +64,14 @@ class _DoneLabViewState extends State<DoneLabView> {
       setState(() {
         isLoading = true;
       });
-     ApiClient().getLab(labId: lab.id).then((l){
+     ApiClient().getLab(lab.id).then((l){
        setState(() {
           lab = l;
           tasks = l.tasks;
           isLoading = false;
        });
+     }).catchError((onError){
+       ToastUtils.showToast(onError.toString());
      });
   }
 
@@ -147,7 +149,7 @@ class _DoneLabViewState extends State<DoneLabView> {
           if(selectedXAxis=="T")
             xAxisData.add(x.torque);
           else if(selectedXAxis==xAxisT)
-            xAxisData.add(i.toDouble());
+            xAxisData.add((i+1).toDouble());
           else{
             xAxisData.add((x.reading.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==selectedXAxis).readingJsonKey}"]));
           }
@@ -157,7 +159,7 @@ class _DoneLabViewState extends State<DoneLabView> {
       case EngineState.idle:
         chosenTask.idleReadings.forEach((x) {
           if(selectedXAxis==xAxisT)
-            xAxisData.add(chosenTask.idleReadings.indexOf(x).toDouble());
+            xAxisData.add(chosenTask.idleReadings.indexOf(x)+1.toDouble());
           else
             xAxisData.add((x.reading.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==selectedXAxis).readingJsonKey}"]));
         });
@@ -416,7 +418,9 @@ class _DoneLabViewState extends State<DoneLabView> {
                                                     : _currentRangeValues,
                                                 min: 0,
                                                 max: xAxisData.length <= 0 ? 1000 : xAxisData.length,
-                                                divisions: (xAxisData.length <= 0 ? 1000 : xAxisData.length) ~/ 10,
+                                                divisions: xAxisData.length<100
+                                                    ? xAxisData.length
+                                                    : (xAxisData.length <= 0 ? 1000 : xAxisData.length) ~/ 20,
                                                 labels: RangeLabels(
                                                   (_currentRangeValues == null
                                                           ? ((isIdleEngineState()

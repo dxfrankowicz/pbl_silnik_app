@@ -20,8 +20,10 @@ class Lists{
     return statsList.firstWhere((x) => x.symbol.toLowerCase()==symbol.toLowerCase(), orElse: ()=>null);
   }
 
+  // ignore: deprecated_member_use
   static List<Lab> labs = [
     Lab(1, "Laboratorium ip", DateTime.now(), [
+
       Task(1, "Ćwiczenie numer 1", List<IdleReading>(), List<LoadReading>(), null),
       Task(2, "Ćwiczenie numer 2", List<IdleReading>(), List<LoadReading>(), null),
     ]),

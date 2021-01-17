@@ -39,6 +39,7 @@ class _LabChooserState extends State<LabChooser> {
   }
 
   void fetchLabsList(){
+    labs.clear();
     setState(() {
       isLoading = true;
     });
@@ -240,11 +241,11 @@ class _LabChooserState extends State<LabChooser> {
                               if(newLab!=null) {
                                 setState(() {
                                   id = labs.length+1;
-                                  Lists.labs.add(Lab(labs.length+1, labNameController.value.text, DateTime.now(), null));
-                                  labNameController.clear();
+                                  ApiClient().addLab(Lab(id, labNameController.value.text, DateTime.now(), null)).then((value) {
+                                    labNameController.clear();
+                                  });
                                 });
-                                Navigator.of(context).pushNamed(
-                                    '/new-lab/$id');
+                                Navigator.of(context).pushNamed('/new-lab/$id').then((value) => fetchLabsList());
                               }
                             },
                             child: Padding(

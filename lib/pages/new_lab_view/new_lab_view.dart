@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -9,7 +8,6 @@ import 'package:flutter_web_chartjs/chartjs.wrapper.dart';
 import 'package:silnik_app/api/models/idle_reading.dart';
 import 'package:silnik_app/api/models/lab.dart';
 import 'package:silnik_app/api/models/load_reading.dart';
-import 'package:silnik_app/api/models/reading.dart';
 import 'package:silnik_app/api/models/task.dart';
 import 'package:silnik_app/components/create_task_dialog.dart';
 import 'package:silnik_app/components/data_table.dart';
@@ -25,15 +23,15 @@ import 'package:silnik_app/utils/toast_utils.dart';
 import '../../api/models/stat_value.dart';
 import '../../lists.dart';
 
-class MainLabView extends StatefulWidget {
+class NewLabView extends StatefulWidget {
   final Lab lab;
-  MainLabView(this.lab, {Key key}) : super(key: key);
+  NewLabView(this.lab, {Key key}) : super(key: key);
 
   @override
-  _MainLabViewState createState() => _MainLabViewState(lab);
+  _NewLabViewState createState() => _NewLabViewState(lab);
 }
 
-class _MainLabViewState extends State<MainLabView> {
+class _NewLabViewState extends State<NewLabView> {
 
   Lab lab;
 
@@ -42,7 +40,7 @@ class _MainLabViewState extends State<MainLabView> {
 
   int _currentSliderValue = 50;
 
-  _MainLabViewState(this.lab);
+  _NewLabViewState(this.lab);
 
   TextTheme textTheme;
   bool isMacroRunning = false;
@@ -62,7 +60,6 @@ class _MainLabViewState extends State<MainLabView> {
   bool addNewTaskTextField = true;
 
   //tasks
-  List<Task> tasks = new List();
   Task chosenTask;
 
   //engine
@@ -96,9 +93,15 @@ class _MainLabViewState extends State<MainLabView> {
     super.dispose();
   }
 
+  void updateLab() async {
+    print("LAB $lab");
+    ApiClient().updateLab(lab);
+  }
+
   @override
   void initState() {
     code = algorithms.keys.first;
+    lab.tasks = [];
 
     Lists.statsList.forEach((element) {
       statValueChangeTextController[element.symbol] = TextEditingController();
@@ -122,13 +125,11 @@ class _MainLabViewState extends State<MainLabView> {
     macroSubLoopChangeControllerTime.text=10.toString();
 
     super.initState();
-    if(lab.id==1)
-      tasks = Lists.tasksLab1;
 
-    if(tasks!=null && tasks.isNotEmpty)
-      chosenTask = tasks.first;
+    if(lab.tasks!=null && lab.tasks.isNotEmpty)
+      chosenTask = lab.tasks.first;
     else
-      addNewTaskTextField = tasks.isEmpty;
+      addNewTaskTextField = lab.tasks.isEmpty;
 
     _labDuration = Timer.periodic(Duration(seconds: 1), (t) {
       setState(() {});
@@ -240,6 +241,7 @@ class _MainLabViewState extends State<MainLabView> {
           if (chosenTask.loadReadings.last.torque >= double.parse(macroChangeControllerSubLoopValue["T"][2].text)) {
             _subLoopTimer.cancel();
             macrosDone+=1;
+            updateLab();
             if (chosenTask.loadReadings.last.reading.powerFrequency >= double.parse(macroChangeControllerValue["f"][2].text))
                 _stopMacro();
             else
@@ -347,6 +349,7 @@ class _MainLabViewState extends State<MainLabView> {
           ToastUtils.showToast("Wykonano makro, ustawiono f = ${chosenTask.idleReadings.last.reading.powerFrequency}");
         break;
     }
+    updateLab();
   }
 
   //Pobieranie danych
@@ -377,6 +380,7 @@ class _MainLabViewState extends State<MainLabView> {
       ToastUtils.showToast("Pobrano dane");
       setState(() {
         chosenTask = value;
+        updateLab();
       });
     });
   }
@@ -1096,14 +1100,14 @@ class _MainLabViewState extends State<MainLabView> {
                                 Expanded(
                                   child: Row(
                                     children: [
-                                      tasks == null || tasks.isEmpty  ?  Container() :  Expanded(
+                                      lab.tasks == null || lab.tasks.isEmpty  ?  Container() :  Expanded(
                                         child: FlatButton(
                                           onPressed: (){},
                                           child: DropdownButton<Task>(
                                             value: chosenTask,
                                             underline: Container(),
                                             isExpanded: true,
-                                            items: tasks.map((e){
+                                            items: lab.tasks.map((e){
                                               return DropdownMenuItem(
                                                 child: Text(e.name, style: textTheme.subtitle1.copyWith(fontWeight: FontWeight.bold)),
                                                 value: e,
@@ -1274,7 +1278,7 @@ class _MainLabViewState extends State<MainLabView> {
               ),
               data: ChartData(
                   labels: (isIdleEngineState() ? chosenTask.idleReadings : chosenTask.loadReadings).map((e){
-                    return (isIdleEngineState() ? chosenTask.idleReadings : chosenTask.loadReadings).indexOf(e).toString();
+                    return ((isIdleEngineState() ? chosenTask.idleReadings : chosenTask.loadReadings).indexOf(e)+1).toString();
                   }).toList().getRange(length - _currentSliderValue <= 0 ? 0 : length - _currentSliderValue, length).toList(),
                   datasets: [
                     ChartDataset(
@@ -1436,16 +1440,18 @@ class _MainLabViewState extends State<MainLabView> {
       {
         List<IdleReading> idleReadings = new List();
         List<LoadReading> loadReadings = new List();
-        tasks.add(Task(tasks.length + 1, value, idleReadings, loadReadings, lab));
-        if (tasks.length == 1) {
-          chosenTask = tasks.first;
+        Task task = Task(lab.tasks.length + 1, value, idleReadings, loadReadings, lab);
+        lab.tasks.add(task);
+        updateLab();
+        if (lab.tasks.length == 1) {
+          chosenTask = lab.tasks.first;
           ToastUtils.showToast("Wybrane ćwiczenie: ${chosenTask.name}");
         }
         else {
           DialogUtils.showYesNoDialog(
             context, "Wczytać dodane ćwiczenie?",
             yesFunction: () {
-              chosenTask = tasks.last;
+              chosenTask = lab.tasks.last;
               _stopMacro();
               _stopFetchingData();
               ToastUtils.showToast("Wybrane ćwiczenie: ${chosenTask.name}");

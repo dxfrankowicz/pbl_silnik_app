@@ -5,13 +5,21 @@ import 'package:silnik_app/api/models/lab.dart';
 import 'package:silnik_app/api/models/load_reading.dart';
 import 'package:silnik_app/api/models/reading.dart';
 import 'package:silnik_app/api/models/task.dart';
-import 'package:silnik_app/lists.dart';
 import 'package:silnik_app/pages/new_lab_view/new_lab_view.dart';
+
+import '../lists.dart';
 
 class ApiClient {
   //singleton
+
+  static List<Lab> _labs = [];
+
   static final ApiClient _singleton = ApiClient._internal();
   factory ApiClient() {
+    if (_labs.isEmpty)
+      Lists.labs.forEach((element) {
+        _labs.add(element);
+      });
     return _singleton;
   }
   ApiClient._internal();
@@ -81,12 +89,28 @@ class ApiClient {
   }
 
   Future<List<Lab>> getLabsList() async {
-    return Lists.labs;
+    return _labs;
   }
 
-  Future<Lab> getLab({int labId}) async {
-     Lab lab = Lists.labs.firstWhere((element) => element.id==labId);
-     if(lab!=null){
+  Future<void> addLab(Lab lab) async {
+    return _labs.add(lab);
+  }
+
+  Future<Task> addTask(Task task) async {
+    _labs.firstWhere((x) => x.id == task.lab.id).tasks.add(task);
+    return task;
+  }
+
+  Future<Lab> updateLab(Lab lab) async {
+    int index = _labs.indexOf(_labs.firstWhere((x) => x.id == lab.id));
+    _labs[index] = lab;
+    return lab;
+  }
+
+  Future<Lab> getLab(int labId) async {
+    Lab lab = _labs.firstWhere((x) => x.id == labId);
+     print("Asddasdasda ${lab.toJson()}");
+     if(lab!=null && labId<=3){
         Random r = new Random();
      lab.tasks.forEach((e) {
         List<LoadReading> loads = List.generate(100, (index) => LoadReading((index + r.nextDouble()),

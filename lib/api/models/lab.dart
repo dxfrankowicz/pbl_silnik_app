@@ -15,6 +15,11 @@ class Lab {
 
   factory Lab.fromJson(Map<String, dynamic> json) => _$LabFromJson(json);
   Map<String, dynamic> toJson() => _$LabToJson(this);
+
+  @override
+  String toString() {
+    return 'Lab{id: $id, name: $name, date: $date, tasks: $tasks}';
+  }
 }
 
 
