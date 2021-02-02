@@ -6,6 +6,7 @@ import 'package:silnik_app/api/models/load_reading.dart';
 import 'package:silnik_app/api/models/reading.dart';
 import 'package:silnik_app/api/models/task.dart';
 import 'package:silnik_app/pages/new_lab_view/new_lab_view.dart';
+import 'package:silnik_app/utils/toast_utils.dart';
 
 import '../lists.dart';
 
@@ -86,6 +87,11 @@ class ApiClient {
     }
     print("Ustawaiono dane ${value.toString()}");
     return _chosenTask;
+  }
+
+  Future<bool> endLab() async {
+    ToastUtils.showToast("Laboratorium zostało zakończone");
+    return true;
   }
 
   Future<List<Lab>> getLabsList() async {

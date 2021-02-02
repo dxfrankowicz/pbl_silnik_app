@@ -1294,145 +1294,164 @@ class _NewLabViewState extends State<NewLabView> {
     );
   }
 
+  Future<bool> _requestPop() {
+    DialogUtils.showYesNoDialog(
+      context,
+      "Czy na pewno chcesz skończyć laboratorium?",
+      yesFunction: () {
+        Navigator.of(context).pop();
+        ApiClient().endLab().then((value){
+          return new Future.value(true);
+        });
+      },
+      noFunction: () {
+        return new Future.value(false);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     textTheme = Theme.of(context).textTheme;
-    return SilnikScaffold.get(
-        context,
-        appBar: SilnikScaffold.appBar(context, actions: [
-          Container(
-            padding: const EdgeInsets.all(8.0),
-            child: Container(
-              width: MediaQuery.of(context).size.width/4,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  new SelectableText("Data rozpoczęcia", style: textTheme.subtitle2.copyWith(color: Colors.white)),
-                  new SelectableText(MyDateUtils.formatDateTime(context, lab.date), style: textTheme.subtitle1.copyWith(color: Colors.white))
-                ],
+    return WillPopScope(
+      onWillPop: _requestPop,
+      child: SilnikScaffold.get(
+          context,
+          appBar: SilnikScaffold.appBar(context, actions: [
+            Container(
+              padding: const EdgeInsets.all(8.0),
+              child: Container(
+                width: MediaQuery.of(context).size.width/4,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    new SelectableText("Data rozpoczęcia", style: textTheme.subtitle2.copyWith(color: Colors.white)),
+                    new SelectableText(MyDateUtils.formatDateTime(context, lab.date), style: textTheme.subtitle1.copyWith(color: Colors.white))
+                  ],
+                ),
               ),
             ),
-          ),
-        ]),
-        body: SingleChildScrollView(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              children: [
-                labAndTaskDetailsCard(),
-                chosenTask == null
-                    ? EmptyView(
-                        message: "Nie wczytano zadania",
-                      )
-                    : Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                        flex: 3,
-                        child: Column(children: [
-                          engineStateCard(),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Card(
-                                  child: new Container(
-                                    height: 800,
-                                    child: MaterialApp(
-                                      debugShowCheckedModeBanner: false,
-                                      builder: (context, child) {
-                                        return DefaultTabController(
-                                            length: 3,
-                                            child: Column(
-                                              children: [
-                                                new TabBar(
-                                                  indicatorColor: Colors.blue,
-                                                  indicatorWeight: 2,
-                                                  tabs: [
-                                                    Padding(
-                                                      padding: const EdgeInsets.all(8.0),
-                                                      child: Text(
-                                                          "Odczyty bieżące",
-                                                          textAlign: TextAlign.center,
-                                                          style: Theme.of(context).textTheme.headline6),
-                                                    ),
-                                                    Padding(
-                                                      padding: const EdgeInsets.all(8.0),
-                                                      child: new Text(
-                                                          "Historia odczytów",
-                                                          textAlign: TextAlign.center,
-                                                          style: Theme.of(context).textTheme.headline6),
-                                                    ),
-                                                    Padding(
-                                                      padding: const EdgeInsets.all(8.0),
-                                                      child: new Text(
-                                                          "Wykresy danych",
-                                                          textAlign: TextAlign.center,
-                                                          style: Theme.of(context).textTheme.headline6),
-                                                    ),
-                                                  ],
-                                                ),
-                                                Flexible(
-                                                  child: Padding(
-                                                    padding: const EdgeInsets
-                                                        .all(8.0),
-                                                    child: TabBarView(
-                                                      children: [
-                                                        latestDataCard(),
-                                                        historicalDataTableCard(),
-                                                        Column(
-                                                          children: [
-                                                            Row(
-                                                              children: [
-                                                                Expanded(child: selectYAxis()),
-                                                                Expanded(
-                                                                  flex: 3,
-                                                                  child: Slider(
-                                                                    value: _currentSliderValue.toDouble(),
-                                                                    min: 10,
-                                                                    max: 250,
-                                                                    divisions: 240 ~/ 10,
-                                                                    label: _currentSliderValue.round().toString(),
-                                                                    onChanged: (double value) {
-                                                                      setState(() {
-                                                                        _currentSliderValue = value.toInt();
-                                                                      });
-                                                                    },
+          ]),
+          body: SingleChildScrollView(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                children: [
+                  labAndTaskDetailsCard(),
+                  chosenTask == null
+                      ? EmptyView(
+                          message: "Nie wczytano zadania",
+                        )
+                      : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                          flex: 3,
+                          child: Column(children: [
+                            engineStateCard(),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Card(
+                                    child: new Container(
+                                      height: 800,
+                                      child: MaterialApp(
+                                        debugShowCheckedModeBanner: false,
+                                        builder: (context, child) {
+                                          return DefaultTabController(
+                                              length: 3,
+                                              child: Column(
+                                                children: [
+                                                  new TabBar(
+                                                    indicatorColor: Colors.blue,
+                                                    indicatorWeight: 2,
+                                                    tabs: [
+                                                      Padding(
+                                                        padding: const EdgeInsets.all(8.0),
+                                                        child: Text(
+                                                            "Odczyty bieżące",
+                                                            textAlign: TextAlign.center,
+                                                            style: Theme.of(context).textTheme.headline6),
+                                                      ),
+                                                      Padding(
+                                                        padding: const EdgeInsets.all(8.0),
+                                                        child: new Text(
+                                                            "Historia odczytów",
+                                                            textAlign: TextAlign.center,
+                                                            style: Theme.of(context).textTheme.headline6),
+                                                      ),
+                                                      Padding(
+                                                        padding: const EdgeInsets.all(8.0),
+                                                        child: new Text(
+                                                            "Wykresy danych",
+                                                            textAlign: TextAlign.center,
+                                                            style: Theme.of(context).textTheme.headline6),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  Flexible(
+                                                    child: Padding(
+                                                      padding: const EdgeInsets
+                                                          .all(8.0),
+                                                      child: TabBarView(
+                                                        children: [
+                                                          latestDataCard(),
+                                                          historicalDataTableCard(),
+                                                          Column(
+                                                            children: [
+                                                              Row(
+                                                                children: [
+                                                                  Expanded(child: selectYAxis()),
+                                                                  Expanded(
+                                                                    flex: 3,
+                                                                    child: Slider(
+                                                                      value: _currentSliderValue.toDouble(),
+                                                                      min: 10,
+                                                                      max: 250,
+                                                                      divisions: 240 ~/ 10,
+                                                                      label: _currentSliderValue.round().toString(),
+                                                                      onChanged: (double value) {
+                                                                        setState(() {
+                                                                          _currentSliderValue = value.toInt();
+                                                                        });
+                                                                      },
+                                                                    ),
                                                                   ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                            Text(
-                                                                "Pokazuj ostanie: $_currentSliderValue pomiarów na wykresie",
-                                                                style: textTheme.subtitle1),
-                                                            chart(),
-                                                          ],
-                                                        )
-                                                      ],
+                                                                ],
+                                                              ),
+                                                              Text(
+                                                                  "Pokazuj ostanie: $_currentSliderValue pomiarów na wykresie",
+                                                                  style: textTheme.subtitle1),
+                                                              chart(),
+                                                            ],
+                                                          )
+                                                        ],
+                                                      ),
                                                     ),
                                                   ),
-                                                ),
-                                              ],
-                                            ));
-                                      },
+                                                ],
+                                              ));
+                                        },
+                                      ),
                                     ),
                                   ),
-                                ),
-                              )
-                            ],
-                          )
-                        ])),
-                          Expanded(
-                            flex: 2,
-                            child: Column(children: [
-                              algorithmChooseCard(),
-                              changeValuesCard(),
-                              changeValuesPeriodicallyCard(),
-                              fetchDataCard(),
-                            ]),
-                          )
-                        ],
-                      ),
-              ],
-            )));
+                                )
+                              ],
+                            )
+                          ])),
+                            Expanded(
+                              flex: 2,
+                              child: Column(children: [
+                                algorithmChooseCard(),
+                                changeValuesCard(),
+                                changeValuesPeriodicallyCard(),
+                                fetchDataCard(),
+                              ]),
+                            )
+                          ],
+                        ),
+                ],
+              ))),
+    );
   }
 
   _showAddTaskDialog() async => AddTaskDialog.showAddTaskDialog(context).then((value){
