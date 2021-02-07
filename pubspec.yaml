@@ -37,8 +37,7 @@ dependencies:
   fluro: ^1.7.8
   fluttertoast: ^7.1.5
   flutter_web_chartjs: ^0.2.6-beta
-  fl_chart: ^0.12.0
-  http: ^0.12.1
+  http: ^0.12.2
 
 dev_dependencies:
   flutter_test:
