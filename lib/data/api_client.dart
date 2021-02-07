@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:silnik_app/api/models/idle_reading.dart';
@@ -7,11 +8,15 @@ import 'package:silnik_app/api/models/reading.dart';
 import 'package:silnik_app/api/models/task.dart';
 import 'package:silnik_app/pages/new_lab_view/new_lab_view.dart';
 import 'package:silnik_app/utils/toast_utils.dart';
+import 'package:http/http.dart' as http;
 
 import '../lists.dart';
 
 class ApiClient {
   //singleton
+
+  static String url = 'http://localhost';
+  static String getUrl(String append)=> url + "/${append}";
 
   static List<Lab> _labs = [];
 
@@ -24,6 +29,46 @@ class ApiClient {
     return _singleton;
   }
   ApiClient._internal();
+
+  String prepareJsonToSend(Map<String,dynamic> body){
+    body.removeWhere((k, v) {
+      return v == null;
+    });
+    body = body.map((k, v) {
+      return new MapEntry(k, v?.toString());
+    });
+    var jsonToSend = json.encode(body).toString();
+    return jsonToSend;
+  }
+
+  Future<dynamic> postRequest(Map<String, dynamic> body) async {
+    await http.post(url,
+        body: prepareJsonToSend(body),
+        headers: {"Content-Type": "application/json"}).then((value) {
+      print('Response status: ${value.statusCode}');
+      print('Response body: ${value.body}');
+      return value.statusCode;
+    });
+  }
+
+  Future<dynamic> putRequest(Map<String, dynamic> body) async {
+    await http.put(url,
+        body: prepareJsonToSend(body),
+        headers: {"Content-Type": "application/json"}).then((value) {
+      print('Response status: ${value.statusCode}');
+      print('Response body: ${value.body}');
+      return value.statusCode;
+    });
+  }
+
+  Future<dynamic> getRequest(String url) async {
+    await http.get(url,
+        headers: {"Content-Type": "application/json"}).then((value) {
+      print('Response status: ${value.statusCode}');
+      print('Response body: ${value.body}');
+      return value;
+    });
+  }
 
   Future<Task> fetchData({EngineState engineState, Task chosenTask}) async {
     Random r = new Random();
