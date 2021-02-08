@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:async';
+import 'dart:io';
 
 import 'package:silnik_app/api/models/idle_reading.dart';
 import 'package:silnik_app/api/models/lab.dart';
+import 'package:silnik_app/api/models/lab_rsp.dart';
 import 'package:silnik_app/api/models/load_reading.dart';
 import 'package:silnik_app/api/models/reading.dart';
 import 'package:silnik_app/api/models/task.dart';
@@ -68,6 +71,24 @@ class ApiClient {
       print('Response body: ${value.body}');
       return value;
     });
+  }
+
+  convertToJson(Response rsp) =>
+      rsp.body != null ? json.decode(rsp.body) : null;
+
+  Map<String, dynamic> prepareForUpdate(
+      Map<String, dynamic> body, List<String> fields) {
+    body.removeWhere((k, v) {
+      return v == null;
+      // || !fields.contains(k); todo wlaczyc walidacje
+    });
+
+    body = body.map((k, v) {
+      return new MapEntry(
+          k,
+          v?.toString());
+    });
+    return body;
   }
 
   Future<Task> fetchData({EngineState engineState, Task chosenTask}) async {
@@ -140,6 +161,10 @@ class ApiClient {
   }
 
   Future<List<Lab>> getLabsList() async {
+    await http.get(getUrl("/lab"), headers: {"Content-Type": "application/json"}).then((rsp) {
+          var json = convertToJson(rsp);
+          return new LabRsp.fromJson(json).labs;
+    });
     return _labs;
   }
 
