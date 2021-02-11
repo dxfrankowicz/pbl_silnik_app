@@ -11,8 +11,10 @@ class Task {
   List<IdleReading> idleReadings;
   List<LoadReading> loadReadings;
   Lab lab;
+  @JsonKey(ignore: true, defaultValue: false)
+  bool hasEnded;
 
-  Task(this.id, this.name, this.idleReadings, this.loadReadings, this.lab);
+  Task(this.id, this.name, this.idleReadings, this.loadReadings, this.lab, {this.hasEnded});
 
 
   @override

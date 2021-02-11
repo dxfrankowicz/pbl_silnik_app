@@ -4,10 +4,11 @@ import 'package:responsive_framework/responsive_wrapper.dart';
 import 'package:responsive_framework/utils/scroll_behavior.dart';
 import 'package:silnik_app/pages/lab_choser.dart';
 import 'package:silnik_app/pages/routes.dart';
-
+import 'api/utils/logger_utils.dart';
 
 void main() {
   Routes.defineRoutes();
+  LoggerUtils.init();
   runApp(MyApp());
 }
 

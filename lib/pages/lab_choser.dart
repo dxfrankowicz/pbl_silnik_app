@@ -2,12 +2,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
+import 'package:silnik_app/api/api_client.dart';
 import 'package:silnik_app/api/models/lab.dart';
-import 'package:silnik_app/data/api_client.dart';
-
 import 'package:silnik_app/utils/date_utils.dart';
-
-import '../lists.dart';
 import 'base_scaffold.dart';
 
 class LabChooser extends StatefulWidget {
@@ -24,6 +21,7 @@ class _LabChooserState extends State<LabChooser> {
 
   Lab newLab;
   TextEditingController labNameController;
+  final _labNameKey = GlobalKey<FormState>();
   List<Lab> labs = [];
 
   bool isLoading;
@@ -34,7 +32,6 @@ class _LabChooserState extends State<LabChooser> {
     super.initState();
     newLab = new Lab.empty();
     labNameController = new TextEditingController();
-    newLab.date = DateTime.now();
     initializeDateFormatting();
   }
 
@@ -44,7 +41,7 @@ class _LabChooserState extends State<LabChooser> {
       isLoading = true;
     });
     ApiClient().getLabsList().then((value) => setState((){
-      labs.addAll(value);
+      labs.addAll(value.labs);
       isLoading = false;
     }));
   }
@@ -162,25 +159,27 @@ class _LabChooserState extends State<LabChooser> {
                       ],
                     ),
                   ),
-                  Container(
-                    padding: EdgeInsets.only(top: 8),
-                    child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: getSortedByDateLabsList().length,
-                        itemBuilder: (BuildContext context, int index) {
-                          Lab l = getSortedByDateLabsList()[index];
-                          return FlatButton(
-                            onPressed: () {
-                              Navigator.of(context).pushNamed('/lab/${l.id}');
-                            },
-                            child: ListTile(
-                              title: Text(l.name),
-                              subtitle: Text(
-                                  MyDateUtils.formatDateTime(context, l.date)),
-                              leading: Icon(Icons.assessment_outlined),
-                            ),
-                          );
-                        }),
+                  Expanded(
+                    child: Container(
+                      padding: EdgeInsets.only(top: 8),
+                      child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: getSortedByDateLabsList().length,
+                          itemBuilder: (BuildContext context, int index) {
+                            Lab l = getSortedByDateLabsList()[index];
+                            return FlatButton(
+                              onPressed: () {
+                                Navigator.of(context).pushNamed('/lab/${l.id}');
+                              },
+                              child: ListTile(
+                                title: Text(l.name),
+                                subtitle: Text(
+                                    MyDateUtils.formatDateTime(context, l.date)),
+                                leading: Icon(Icons.assessment_outlined),
+                              ),
+                            );
+                          }),
+                    ),
                   ),
                 ],
               ),
@@ -211,17 +210,26 @@ class _LabChooserState extends State<LabChooser> {
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           child: new Row(
                             children: [
-                              Expanded(child: TextField(
-                                controller: labNameController,
-                                onChanged: (x){
-                                  setState(() {
-                                    newLab.name = x;
-                                  });
-                                },
-                                decoration: InputDecoration(
-                                  border: OutlineInputBorder(),
-                                  labelText: "Nazwa laboratorium",
-                                  hintText: "Wpisz nazwę laboratorium"
+                              Expanded(child: Form(
+                                key: _labNameKey,
+                                child: TextFormField(
+                                  controller: labNameController,
+                                  validator: (value) {
+                                    if (value.isEmpty || value=="") {
+                                      return 'Pole nie może być puste';
+                                    }
+                                    return null;
+                                  },
+                                  onChanged: (x){
+                                    setState(() {
+                                      newLab.name = x;
+                                    });
+                                  },
+                                  decoration: InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    labelText: "Nazwa laboratorium",
+                                    hintText: "Wpisz nazwę laboratorium"
+                                  ),
                                 ),
                               ))
                             ],
@@ -237,15 +245,19 @@ class _LabChooserState extends State<LabChooser> {
                         Expanded(
                           child: FlatButton(
                             onPressed: () {
-                              int id;
-                              if(newLab!=null) {
-                                setState(() {
-                                  id = labs.length+1;
-                                  ApiClient().addLab(Lab(id, labNameController.value.text, DateTime.now(), null)).then((value) {
-                                    labNameController.clear();
+                              if(_labNameKey.currentState.validate()) {
+                                if (newLab != null) {
+                                  int id;
+                                  setState(() {
+                                    id = labs.length + 1;
+                                    ApiClient().addLab(newLab).then((value) {
+                                      id = value.id;
+                                      labNameController.clear();
+                                    });
                                   });
-                                });
-                                Navigator.of(context).pushNamed('/new-lab/$id').then((value) => fetchLabsList());
+                                  Navigator.of(context).pushNamed(
+                                      '/new-lab/$id').then((value) => fetchLabsList());
+                                }
                               }
                             },
                             child: Padding(
@@ -282,8 +294,8 @@ class _LabChooserState extends State<LabChooser> {
             children: [
               Flexible(
                 child: Container(
-                  child: labsList()
-                ),
+                  child: labsList(),
+                )
               ),
               Expanded(
                 child: Container(

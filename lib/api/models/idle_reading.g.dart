@@ -7,15 +7,33 @@ part of 'idle_reading.dart';
 // **************************************************************************
 
 IdleReading _$IdleReadingFromJson(Map<String, dynamic> json) {
-  return IdleReading(
-    json['reading'] == null
+  return IdleReading()
+    ..id = json['id'] as int
+    ..voltage = (json['voltage'] as num)?.toDouble()
+    ..power = (json['power'] as num)?.toDouble()
+    ..statorCurrent = (json['statorCurrent'] as num)?.toDouble()
+    ..rotorCurrent = (json['rotorCurrent'] as num)?.toDouble()
+    ..rotationalSpeed = (json['rotationalSpeed'] as num)?.toDouble()
+    ..powerFrequency = (json['powerFrequency'] as num)?.toDouble()
+    ..timeStamp = json['timeStamp'] == null
         ? null
-        : Reading.fromJson(json['reading'] as Map<String, dynamic>),
-  )..selected = json['selected'] as bool;
+        : DateTime.parse(json['timeStamp'] as String)
+    ..task = json['task'] == null
+        ? null
+        : Task.fromJson(json['task'] as Map<String, dynamic>)
+    ..selected = json['selected'] as bool;
 }
 
 Map<String, dynamic> _$IdleReadingToJson(IdleReading instance) =>
     <String, dynamic>{
-      'reading': instance.reading,
+      'id': instance.id,
+      'voltage': instance.voltage,
+      'power': instance.power,
+      'statorCurrent': instance.statorCurrent,
+      'rotorCurrent': instance.rotorCurrent,
+      'rotationalSpeed': instance.rotationalSpeed,
+      'powerFrequency': instance.powerFrequency,
+      'timeStamp': instance.timeStamp?.toIso8601String(),
+      'task': instance.task,
       'selected': instance.selected,
     };

@@ -27,6 +27,11 @@ class Reading {
 
   factory Reading.fromJson(Map<String, dynamic> json) => _$ReadingFromJson(json);
   Map<String, dynamic> toJson() => _$ReadingToJson(this);
+
+  @override
+  String toString() {
+    return 'Reading{id: $id, voltage: $voltage, power: $power, statorCurrent: $statorCurrent, rotorCurrent: $rotorCurrent, rotationalSpeed: $rotationalSpeed, powerFrequency: $powerFrequency, timeStamp: $timeStamp, task: $task}';
+  }
 }
 
 

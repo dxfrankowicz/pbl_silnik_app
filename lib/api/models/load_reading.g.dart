@@ -8,16 +8,35 @@ part of 'load_reading.dart';
 
 LoadReading _$LoadReadingFromJson(Map<String, dynamic> json) {
   return LoadReading(
-    (json['torque'] as num)?.toDouble(),
-    json['reading'] == null
+    (json['ballastMoment'] as num)?.toDouble(),
+  )
+    ..id = json['id'] as int
+    ..voltage = (json['voltage'] as num)?.toDouble()
+    ..power = (json['power'] as num)?.toDouble()
+    ..statorCurrent = (json['statorCurrent'] as num)?.toDouble()
+    ..rotorCurrent = (json['rotorCurrent'] as num)?.toDouble()
+    ..rotationalSpeed = (json['rotationalSpeed'] as num)?.toDouble()
+    ..powerFrequency = (json['powerFrequency'] as num)?.toDouble()
+    ..timeStamp = json['timeStamp'] == null
         ? null
-        : Reading.fromJson(json['reading'] as Map<String, dynamic>),
-  )..selected = json['selected'] as bool;
+        : DateTime.parse(json['timeStamp'] as String)
+    ..task = json['task'] == null
+        ? null
+        : Task.fromJson(json['task'] as Map<String, dynamic>)
+    ..selected = json['selected'] as bool;
 }
 
 Map<String, dynamic> _$LoadReadingToJson(LoadReading instance) =>
     <String, dynamic>{
-      'torque': instance.torque,
+      'id': instance.id,
+      'voltage': instance.voltage,
+      'power': instance.power,
+      'statorCurrent': instance.statorCurrent,
+      'rotorCurrent': instance.rotorCurrent,
+      'rotationalSpeed': instance.rotationalSpeed,
+      'powerFrequency': instance.powerFrequency,
+      'timeStamp': instance.timeStamp?.toIso8601String(),
+      'task': instance.task,
+      'ballastMoment': instance.ballastMoment,
       'selected': instance.selected,
-      'reading': instance.reading,
     };

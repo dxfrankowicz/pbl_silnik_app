@@ -1,14 +1,13 @@
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_web_chartjs/chartjs.models.dart';
 import 'package:flutter_web_chartjs/chartjs.wrapper.dart';
+import 'package:silnik_app/api/api_client.dart';
 import 'package:silnik_app/api/models/lab.dart';
 import 'package:silnik_app/api/models/stat_value.dart';
 import 'package:silnik_app/api/models/task.dart';
 import 'package:silnik_app/components/data_table.dart';
 import 'package:silnik_app/components/empty_view.dart';
-import 'package:silnik_app/data/api_client.dart';
 import 'package:silnik_app/lists.dart';
 import 'package:silnik_app/pages/base_scaffold.dart';
 import 'package:silnik_app/pages/new_lab_view/new_lab_view.dart';
@@ -125,15 +124,15 @@ class _DoneLabViewState extends State<DoneLabView> {
       case EngineState.load:
         chosenTask.loadReadings.forEach((x) {
           if(selectedYAxis=="T")
-            yAxisData.add(x.torque);
+            yAxisData.add(x.ballastMoment);
           else{
-            yAxisData.add((x.reading.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==selectedYAxis).readingJsonKey}"]));
+            yAxisData.add((x.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==selectedYAxis).readingJsonKey}"]));
           }
         });
         break;
       case EngineState.idle:
         chosenTask.idleReadings.forEach((x) {
-          yAxisData.add((x.reading.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==selectedYAxis).readingJsonKey}"]));
+          yAxisData.add((x.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==selectedYAxis).readingJsonKey}"]));
         });
         break;
     }
@@ -147,11 +146,11 @@ class _DoneLabViewState extends State<DoneLabView> {
         int i = 0;
         chosenTask.loadReadings.forEach((x) {
           if(selectedXAxis=="T")
-            xAxisData.add(x.torque);
+            xAxisData.add(x.ballastMoment);
           else if(selectedXAxis==xAxisT)
             xAxisData.add((i+1).toDouble());
           else{
-            xAxisData.add((x.reading.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==selectedXAxis).readingJsonKey}"]));
+            xAxisData.add((x.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==selectedXAxis).readingJsonKey}"]));
           }
           i++;
         });
@@ -161,7 +160,7 @@ class _DoneLabViewState extends State<DoneLabView> {
           if(selectedXAxis==xAxisT)
             xAxisData.add(chosenTask.idleReadings.indexOf(x)+1.toDouble());
           else
-            xAxisData.add((x.reading.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==selectedXAxis).readingJsonKey}"]));
+            xAxisData.add((x.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==selectedXAxis).readingJsonKey}"]));
         });
         break;
     }

@@ -1,14 +1,14 @@
 import 'package:json_annotation/json_annotation.dart';
 import 'package:silnik_app/api/models/reading.dart';
+import 'package:silnik_app/api/models/task.dart';
 part 'load_reading.g.dart';
 
 @JsonSerializable()
-class LoadReading {
-  double torque;
+class LoadReading extends Reading{
+  double ballastMoment;
   bool selected = false;
-  Reading reading;
 
-  LoadReading(this.torque, this.reading);
+  LoadReading(this.ballastMoment);
 
   LoadReading.empty();
 

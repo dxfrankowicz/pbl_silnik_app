@@ -4,8 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:silnik_app/api/models/idle_reading.dart';
 import 'package:silnik_app/api/models/load_reading.dart';
-import 'package:silnik_app/data/api_client.dart';
-import 'package:silnik_app/pages/new_lab_view/new_lab_view.dart';
+import 'package:silnik_app/api/models/reading.dart';
 import '../lists.dart';
 
 // ignore: must_be_immutable
@@ -14,8 +13,8 @@ class CustomPaginatedTable extends StatefulWidget {
   List<LoadReading> loadReadings;
   final bool isIdleSelected;
 
-  static List<int> idleReadingItemSelected = new List();
-  static List<int> loadReadingItemSelected = new List();
+  static List<int> idleReadingItemSelected = [];
+  static List<int> loadReadingItemSelected = [];
 
   CustomPaginatedTable(
       {this.idleReadings, this.loadReadings, this.isIdleSelected = true});
@@ -31,6 +30,7 @@ class _CustomPaginatedTableState extends State<CustomPaginatedTable> {
 
   @override
   Widget build(BuildContext context) {
+    Random r = new Random();
     dts = DTS(widget.isIdleSelected ? widget.idleReadings : widget.loadReadings,
         callback: (int i) {
       print("Selected items: $i");
@@ -42,8 +42,8 @@ class _CustomPaginatedTableState extends State<CustomPaginatedTable> {
       children: [
         Row(
           children: [
-            Expanded(
-                child: PaginatedDataTable(
+            Expanded(child: PaginatedDataTable(
+              showCheckboxColumn: false,
               columns: widget.isIdleSelected
                   ? Lists.statsList
                       .where((x) => !x.loadEngineStateReading)
@@ -65,72 +65,73 @@ class _CustomPaginatedTableState extends State<CustomPaginatedTable> {
                   _rowsPerPage = r;
                 });
               },
-              header: selectedItems > 0
-                  ? Container(
-                      margin: EdgeInsets.only(top: 8),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: FlatButton(
-                              onPressed: () {
-                                setState(() {
-                                  if (widget.isIdleSelected) {
-                                    CustomPaginatedTable.idleReadingItemSelected
-                                        .forEach((i) {
-                                      ApiClient()
-                                          .deleteReading(
-                                              id: i,
-                                              chosenTask: widget.idleReadings
-                                                  .first.reading.task,
-                                              engineState: EngineState.idle)
-                                          .then((value) {
-                                        //widget.idleReadings = value.idleReadings;
-                                      });
-                                    });
-                                    setState(() {
-                                      dts.list = widget.idleReadings;
-                                    });
-                                    CustomPaginatedTable.idleReadingItemSelected
-                                        .clear();
-                                  } else {
-                                    CustomPaginatedTable.loadReadingItemSelected
-                                        .forEach((i) {
-                                      ApiClient()
-                                          .deleteReading(
-                                              id: i,
-                                              chosenTask: widget.loadReadings
-                                                  .first.reading.task,
-                                              engineState: EngineState.load)
-                                          .then((value) {
-                                        //widget.loadReadings = value.loadReadings;
-                                      });
-                                    });
-                                    setState(() {
-                                      dts.list = widget.loadReadings;
-                                    });
-                                    CustomPaginatedTable.loadReadingItemSelected
-                                        .clear();
-                                  }
-                                  dts._selectAll(false);
-                                });
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Text("Usuń zaznaczone",
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyText1
-                                        .copyWith(color: Colors.red)),
-                              ),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8.0),
-                                  side: BorderSide(color: Colors.red)),
-                            ),
-                          )
-                        ],
-                      ),
-                    )
-                  : null,
+              header:
+              // selectedItems > 0
+              //     ? Container(
+              //         margin: EdgeInsets.only(top: 8),
+              //         child: Row(
+              //           children: [
+              //             Expanded(
+              //               child: FlatButton(
+              //                 onPressed: () {
+              //                   setState(() {
+              //                     if (widget.isIdleSelected) {
+              //                       CustomPaginatedTable.idleReadingItemSelected
+              //                           .forEach((i) {
+              //                         // ApiClient()
+              //                         //     .deleteReading(
+              //                         //         id: i,
+              //                         //         chosenTask: widget.idleReadings
+              //                         //             .first.task,
+              //                         //         engineState: EngineState.idle)
+              //                         //     .then((value) {
+              //                         //   //widget.idleReadings = value.idleReadings;
+              //                         // });
+              //                       });
+              //                       setState(() {
+              //                         dts.list = widget.idleReadings;
+              //                       });
+              //                       CustomPaginatedTable.idleReadingItemSelected
+              //                           .clear();
+              //                     } else {
+              //                       CustomPaginatedTable.loadReadingItemSelected
+              //                           .forEach((i) {
+              //                         // ApiClient()
+              //                         //     .deleteReading(
+              //                         //         id: i,
+              //                         //         chosenTask: widget.loadReadings.first.task,
+              //                         //         engineState: EngineState.load)
+              //                         //     .then((value) {
+              //                         //   //widget.loadReadings = value.loadReadings;
+              //                         // });
+              //                       });
+              //                       setState(() {
+              //                         dts.list = widget.loadReadings;
+              //                       });
+              //                       CustomPaginatedTable.loadReadingItemSelected
+              //                           .clear();
+              //                     }
+              //                     dts._selectAll(false);
+              //                   });
+              //                 },
+              //                 child: Padding(
+              //                   padding: const EdgeInsets.all(8.0),
+              //                   child: Text("Usuń zaznaczone",
+              //                       style: Theme.of(context)
+              //                           .textTheme
+              //                           .bodyText1
+              //                           .copyWith(color: Colors.red)),
+              //                 ),
+              //                 shape: RoundedRectangleBorder(
+              //                     borderRadius: BorderRadius.circular(8.0),
+              //                     side: BorderSide(color: Colors.red)),
+              //               ),
+              //             )
+              //           ],
+              //         ),
+              //       )
+              //     :
+              null,
             ))
           ],
         ),
@@ -175,34 +176,33 @@ class DTS extends DataTableSource {
       final dynamic x = list[index];
       return DataRow(
         key:
-            Key("row-${list[index].reading.id * Random().nextInt(pow(2, 32))}"),
-        selected: x.selected,
-        onSelectChanged: (bool value) {
-          if (x.selected != value) {
-            x.selected = !x.selected;
-            _selectedCount = list.where((z) => z.selected).length;
-            callback(selectedRowCount);
-            print("SELECTED ROW: ${x.toString()}");
-            addSelectedIndexes(x.reading.id, remove: !x.selected);
-            notifyListeners();
-          }
-        },
+            Key("row-${list[index].id * Random().nextInt(pow(2, 32))}"),
+        // selected: x.selected,
+        // onSelectChanged: (bool value) {
+        //   if (x.selected != value) {
+        //     x.selected = !x.selected;
+        //     _selectedCount = list.where((z) => z.selected).length;
+        //     callback(selectedRowCount);
+        //     print("SELECTED ROW: ${x.toString()}");
+        //     addSelectedIndexes(x.id, remove: !x.selected);
+        //     notifyListeners();
+        //   }
+        // },
         cells: [
           DataCell(
-              Text(list[index]?.reading?.voltage?.toStringAsFixed(3) ?? "-")),
+              Text(list[index]?.voltage?.toStringAsFixed(3) ?? "-")),
           DataCell(Text(
-              list[index]?.reading?.powerFrequency?.toStringAsFixed(3) ?? "-")),
+              list[index]?.powerFrequency?.toStringAsFixed(3) ?? "-")),
           DataCell(
-              Text(list[index]?.reading?.power?.toStringAsFixed(3) ?? "-")),
+              Text(list[index]?.power?.toStringAsFixed(3) ?? "-")),
           DataCell(Text(
-              list[index]?.reading?.rotationalSpeed?.toStringAsFixed(3) ??
-                  "-")),
+              list[index]?.rotationalSpeed?.toStringAsFixed(3) ?? "-")),
           DataCell(Text(
-              list[index]?.reading?.statorCurrent?.toStringAsFixed(3) ?? "-")),
+              list[index]?.statorCurrent?.toStringAsFixed(3) ?? "-")),
           DataCell(Text(
-              list[index]?.reading?.rotorCurrent?.toStringAsFixed(3) ?? "-")),
+              list[index]?.rotorCurrent?.toStringAsFixed(3) ?? "-")),
           if (list is List<LoadReading>)
-            DataCell(Text(list[index]?.torque?.toStringAsFixed(3) ?? "-"))
+            DataCell(Text(list[index]?.ballastMoment?.toStringAsFixed(3) ?? "-"))
         ],
       );
     } else
@@ -230,8 +230,8 @@ class DTS extends DataTableSource {
 
   void _selectAll(bool checked) {
     for (dynamic x in list) {
-      x.selected = checked;
-      addSelectedIndexes(x.reading.id, remove: !x.selected);
+      //x.selected = checked;
+      addSelectedIndexes(x.id, remove: !x.selected);
     }
     _selectedCount = list.where((x) => x.selected).length;
     callback(selectedRowCount);

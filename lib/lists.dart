@@ -1,6 +1,6 @@
-import 'package:silnik_app/api/models/load_reading.dart';
 import 'api/models/idle_reading.dart';
 import 'api/models/lab.dart';
+import 'api/models/load_reading.dart';
 import 'api/models/stat_value.dart';
 import 'api/models/task.dart';
 
@@ -17,30 +17,30 @@ class Lists{
   ];
 
   static StatValue getStatValue(String symbol){
+    // ignore: null_check_always_fails
     return statsList.firstWhere((x) => x.symbol.toLowerCase()==symbol.toLowerCase(), orElse: ()=>null);
   }
 
   // ignore: deprecated_member_use
-  static List<Lab> labs = [
-    Lab(1, "Laboratorium ip", DateTime.now(), [
-
-      Task(1, "Ćwiczenie numer 1", List<IdleReading>(), List<LoadReading>(), null),
-      Task(2, "Ćwiczenie numer 2", List<IdleReading>(), List<LoadReading>(), null),
-    ]),
-    Lab(2, "Laboratorium testowe", DateTime.now().add(Duration(days: 1)), [
-      Task(1, "Ćwiczenie 2 numer 1", List<IdleReading>(), List<LoadReading>(), null),
-      Task(2, "Ćwiczenie 2 numer 2", List<IdleReading>(), List<LoadReading>(), null),
-    ]),
-    Lab(3, "Laboratorium zip", DateTime.now().subtract(Duration(days: 7)), [
-      Task(1, "Ćwiczenie 3 numer 1", List<IdleReading>(), List<LoadReading>(), null),
-      Task(2, "Ćwiczenie 3 numer 2", List<IdleReading>(), List<LoadReading>(), null),
-    ]),
-  ];
-
-  static List<Task> tasksLab1 = [
-    Task(1, "Ćwiczenie numer 1", List<IdleReading>(), List<LoadReading>(), labs[0]),
-    Task(2, "Ćwiczenie numer 2",  List<IdleReading>(), List<LoadReading>(), labs[0]),
-  ];
+  // static List<Lab> labs = [
+  //   Lab(1, "Laboratorium ip", DateTime.now(), [
+  //     Task(1, "Ćwiczenie numer 1", List<IdleReading>(), List<LoadReading>(), null),
+  //     Task(2, "Ćwiczenie numer 2", List<IdleReading>(), List<LoadReading>(), null),
+  //   ]),
+  //   Lab(2, "Laboratorium testowe", DateTime.now().add(Duration(days: 1)), [
+  //     Task(1, "Ćwiczenie 2 numer 1", List<IdleReading>(), List<LoadReading>(), null),
+  //     Task(2, "Ćwiczenie 2 numer 2", List<IdleReading>(), List<LoadReading>(), null),
+  //   ]),
+  //   Lab(3, "Laboratorium zip", DateTime.now().subtract(Duration(days: 7)), [
+  //     Task(1, "Ćwiczenie 3 numer 1", List<IdleReading>(), List<LoadReading>(), null),
+  //     Task(2, "Ćwiczenie 3 numer 2", List<IdleReading>(), List<LoadReading>(), null),
+  //   ]),
+  // ];
+  //
+  // static List<Task> tasksLab1 = [
+  //   Task(1, "Ćwiczenie numer 1", List<IdleReading>(), List<LoadReading>(), labs[0]),
+  //   Task(2, "Ćwiczenie numer 2",  List<IdleReading>(), List<LoadReading>(), labs[0]),
+  // ];
 
   static List<IdleReading> idleReadings = [];
   static List<LoadReading> loadReadings = [];

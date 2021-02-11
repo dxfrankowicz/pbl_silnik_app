@@ -41,7 +41,7 @@ class AddTaskDialog {
                     ],
                   ),
                   onPressed: () {
-                    Navigator.pop(context, false);
+                    Navigator.pop(context, null);
                   }),
               new FlatButton(
                   child: Row(

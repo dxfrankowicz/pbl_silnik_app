@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:silnik_app/api/api_client.dart';
 import 'package:silnik_app/api/models/lab.dart';
-import 'package:silnik_app/data/api_client.dart';
 import 'new_lab_view.dart';
 
 class MainLabPage extends StatefulWidget {
