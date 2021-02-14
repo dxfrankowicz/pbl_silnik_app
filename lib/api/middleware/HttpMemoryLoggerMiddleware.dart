@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:http_interceptor/http_interceptor.dart';
 
 class HttpMemoryLoggerMiddleware implements InterceptorContract {
@@ -29,7 +31,7 @@ class HttpMemoryLoggerMiddleware implements InterceptorContract {
       "type": type.toString(),
       "method": method,
       "url": url,
-      "body": nonLoggableBodies.any((t) => url.contains(t)) ? "FILTERED" : body?.toString()
+      "body": nonLoggableBodies.any((t) => url.contains(t)) ? "FILTERED" : utf8.encode(body?.toString()?.codeUnits ?? "")
     });
 
     if (log.length >= MAX_LOG_HISTORY) {

@@ -93,6 +93,9 @@ class _NewLabViewState extends State<NewLabView> {
 
   Logger logger = new Logger("LAB");
 
+  //chart
+  TextEditingController numberOfReadingsOnChart = TextEditingController(text: 50.toString());
+
   @override
   void dispose() {
     _timer?.cancel();
@@ -1364,13 +1367,17 @@ class _NewLabViewState extends State<NewLabView> {
               data: ChartData(
                   labels: (isIdleEngineState() ? chosenTask.idleReadings : chosenTask.loadReadings).map((e){
                     return ((isIdleEngineState() ? chosenTask.idleReadings : chosenTask.loadReadings).indexOf(e)+1).toString();
-                  }).toList().getRange(length - _currentSliderValue <= 0 ? 0 : length - _currentSliderValue, length).toList(),
+                  }).toList().getRange(length - int.parse(numberOfReadingsOnChart?.text!=""
+                      ? numberOfReadingsOnChart?.text ?? "0" : "0") <= 0 ? 0
+                      : length - int.parse(numberOfReadingsOnChart?.text!="" ? numberOfReadingsOnChart?.text ?? "0" : "0"), length).toList(),
                   datasets: [
                     ChartDataset(
                       label: selectedYAxis,
                         data: (isIdleEngineState() ? chosenTask.idleReadings : chosenTask.loadReadings).map((dynamic x){
                           return selectedYAxis == "T" ? x.ballastMoment : x.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==selectedYAxis).readingJsonKey}"];
-                        }).toList().getRange(length - _currentSliderValue <= 0 ? 0 : length - _currentSliderValue, length).toList(),
+                        }).toList().getRange(length - int.parse(numberOfReadingsOnChart?.text!=""
+                            ? numberOfReadingsOnChart?.text ?? "0" : "0") <= 0 ? 0 
+                            : length - int.parse(numberOfReadingsOnChart?.text!="" ? numberOfReadingsOnChart?.text ?? "0" : "0"), length).toList(),
                         backgroundColor: Colors.blue.withOpacity(0.4),
                     )
                   ]
@@ -1495,26 +1502,61 @@ class _NewLabViewState extends State<NewLabView> {
                                                               Row(
                                                                 children: [
                                                                   Expanded(child: selectYAxis()),
+                                                                  Padding(
+                                                                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                                                                    child: Text("Pokazuj ostanie: ",style: textTheme.subtitle1),
+                                                                  ),
                                                                   Expanded(
-                                                                    flex: 3,
-                                                                    child: Slider(
-                                                                      value: _currentSliderValue.toDouble(),
-                                                                      min: 10,
-                                                                      max: 250,
-                                                                      divisions: 240 ~/ 10,
-                                                                      label: _currentSliderValue.round().toString(),
-                                                                      onChanged: (double value) {
-                                                                        setState(() {
-                                                                          _currentSliderValue = value.toInt();
-                                                                        });
+                                                                    child: TextFormField(
+                                                                      maxLines: 1,
+                                                                      inputFormatters: [
+                                                                        FilteringTextInputFormatter.allow(
+                                                                            RegExp('[0-9.]'))
+                                                                      ],
+                                                                      validator: (value) {
+                                                                        if (value.isEmpty || value=="") {
+                                                                          return 'Pole nie może być puste';
+                                                                        }
+                                                                        else if(double.tryParse(value) == null){
+                                                                          return 'Niepoprawny format liczby';
+                                                                        }
+                                                                        else if(double.tryParse(value)<=0){
+                                                                          return 'Wartość musi być większa od 0';
+                                                                        }
+                                                                        return null;
                                                                       },
+                                                                      textAlign: TextAlign.center,
+                                                                      decoration: InputDecoration(
+                                                                          border: OutlineInputBorder()
+                                                                      ),
+                                                                      controller: numberOfReadingsOnChart,
+                                                                      autovalidateMode: AutovalidateMode.onUserInteraction,
                                                                     ),
                                                                   ),
+                                                                  Padding(
+                                                                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                                                                    child: Text("pomiarów na wykresie ",style: textTheme.subtitle1),
+                                                                  ),
+                                                                  // Expanded(
+                                                                  //   flex: 3,
+                                                                  //   child: Slider(
+                                                                  //     value: _currentSliderValue.toDouble(),
+                                                                  //     min: 10,
+                                                                  //     max: 10000,
+                                                                  //     divisions: 10000 ~/ 10,
+                                                                  //     label: _currentSliderValue.round().toString(),
+                                                                  //     onChanged: (double value) {
+                                                                  //       setState(() {
+                                                                  //         _currentSliderValue = value.toInt();
+                                                                  //       });
+                                                                  //     },
+                                                                  //   ),
+                                                                  // ),
                                                                 ],
                                                               ),
-                                                              Text(
-                                                                  "Pokazuj ostanie: $_currentSliderValue pomiarów na wykresie",
-                                                                  style: textTheme.subtitle1),
+                                                              // Text(
+                                                              //     "Pokazuj ostanie: $_currentSliderValue pomiarów na wykresie",
+                                                              //     style: textTheme.subtitle1),
                                                               chart(),
                                                             ],
                                                           )
