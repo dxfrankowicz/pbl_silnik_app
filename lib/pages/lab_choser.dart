@@ -249,14 +249,13 @@ class _LabChooserState extends State<LabChooser> {
                                 if (newLab != null) {
                                   int id;
                                   setState(() {
-                                    id = labs.length + 1;
                                     ApiClient().addLab(newLab).then((value) {
                                       id = value.id;
                                       labNameController.clear();
+                                      Navigator.of(context).pushNamed(
+                                          '/new-lab/$id').then((value) => fetchLabsList());
                                     });
                                   });
-                                  Navigator.of(context).pushNamed(
-                                      '/new-lab/$id').then((value) => fetchLabsList());
                                 }
                               }
                             },

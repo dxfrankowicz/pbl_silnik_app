@@ -5,10 +5,11 @@ import 'new_lab_view.dart';
 
 class MainLabPage extends StatefulWidget {
   final int id;
-  MainLabPage(this.id);
+  final Lab lab;
+  MainLabPage(this.id, {this.lab});
 
   @override
-  _MainLabPageState createState() => _MainLabPageState();
+  _MainLabPageState createState() => _MainLabPageState(this.lab);
 }
 
 class _MainLabPageState extends State<MainLabPage> {
@@ -16,6 +17,7 @@ class _MainLabPageState extends State<MainLabPage> {
   Lab lab;
   Widget _futureBody;
 
+  _MainLabPageState(this.lab);
 
   @override
   void initState() {

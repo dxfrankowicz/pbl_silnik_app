@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_web_chartjs/chartjs.models.dart';
 import 'package:flutter_web_chartjs/chartjs.wrapper.dart';
+import 'package:intl/intl.dart';
+import 'package:logging/logging.dart';
 import 'package:silnik_app/api/api_client.dart';
 import 'package:silnik_app/api/models/lab.dart';
 import 'package:silnik_app/api/models/task.dart';
@@ -88,6 +91,8 @@ class _NewLabViewState extends State<NewLabView> {
   String subLoopStatFrequency = "T";
   final _macroTimeSubLoopKey = GlobalKey<FormState>();
 
+  Logger logger = new Logger("LAB");
+
   @override
   void dispose() {
     _timer?.cancel();
@@ -143,19 +148,19 @@ class _NewLabViewState extends State<NewLabView> {
   bool isIdleEngineState() => engineState==EngineState.idle;
   bool isLoadEngineState() => engineState==EngineState.load;
 
+  Timer _macroDuration;
   void _startMacro() {
     macrosDone = 0;
+    _macroDuration = new Timer.periodic(Duration(milliseconds: 1), (t) { });
     if(addSubLoop && isLoadEngineState()){
       startSubLoop();
-      _timer = Timer.periodic(Duration(seconds: 1), (t) {});
     }
     else {
           switch(engineState){
       case EngineState.load:
         if(macroChangeTextCheckBox["f"]) {
           ApiClient().setValue(
-            engineState: EngineState.load, 
-            chosenTask: chosenTask, 
+            engineState: EngineState.load,
             value: {"f" : double.parse(macroChangeControllerValue["f"][0].text)}).then((v){
           if(v) {
             ToastUtils.showToast("Ustawiono f = ${double.parse(macroChangeControllerValue["f"][0].text)}");
@@ -172,8 +177,7 @@ class _NewLabViewState extends State<NewLabView> {
         }
         else if(macroChangeTextCheckBox["T"])
           ApiClient().setValue(
-            engineState: EngineState.load, 
-            chosenTask: chosenTask, 
+            engineState: EngineState.load,
             value: {"T": double.parse(macroChangeControllerValue["T"][0].text)}).then((v){
             if(v) {
               ToastUtils.showToast("Ustawiono T = ${double.parse(
@@ -191,8 +195,7 @@ class _NewLabViewState extends State<NewLabView> {
         break;
       case EngineState.idle:
         ApiClient().setValue(
-          engineState: EngineState.idle, 
-          chosenTask: chosenTask, 
+          engineState: EngineState.idle,
           value: {"f" : double.parse(macroChangeControllerValue["f"][0].text)}).then((v){
           if(v) {
             ToastUtils.showToast("Ustawiono f = ${double.parse(
@@ -209,10 +212,9 @@ class _NewLabViewState extends State<NewLabView> {
         });
         break;
     }
-      _timer = Timer.periodic(Duration(seconds: 1), (t) {
+      _timer = Timer.periodic(Duration(milliseconds: int.parse(macroChangeControllerTime.text)), (t) {
         setState(() {
-          if (t.tick % int.parse(macroChangeControllerTime.text) == 0)
-            changeData();
+          changeData();
         });
       });
     }
@@ -229,7 +231,6 @@ class _NewLabViewState extends State<NewLabView> {
         : macroCurrentValues["f"] + double.parse(macroChangeControllerValue["f"][1].text);
 
       ApiClient().setValue(
-                chosenTask: chosenTask,
                 engineState: engineState,
                 value: {
                   "T" : macroCurrentValues["T"],
@@ -249,13 +250,11 @@ class _NewLabViewState extends State<NewLabView> {
 
         });
               });
-    _subLoopTimer = Timer.periodic(Duration(seconds: 1), (t1) {
-      if (t1.tick % int.parse(macroSubLoopChangeControllerTime.text) == 0) {
+    _subLoopTimer = Timer.periodic(Duration(milliseconds: int.parse(macroSubLoopChangeControllerTime.text)), (t1) {
         setState(() {
           if ((macroCurrentValues["T"] + double.parse(macroChangeControllerSubLoopValue["T"][1].text))
               > double.parse(macroChangeControllerSubLoopValue["T"][2].text))
             ApiClient().setValue(
-              chosenTask: chosenTask,
               engineState: engineState,
               value: {
                 "T" : double.parse(macroChangeControllerSubLoopValue["T"][2].text),
@@ -275,7 +274,6 @@ class _NewLabViewState extends State<NewLabView> {
           else {
             macroCurrentValues["T"] += double.parse(macroChangeControllerSubLoopValue["T"][1].text);
             ApiClient().setValue(
-                chosenTask: chosenTask,
                 engineState: engineState,
                 value: {
                   "T": macroCurrentValues["T"],
@@ -294,24 +292,23 @@ class _NewLabViewState extends State<NewLabView> {
               });
             });
           }
-          if (chosenTask.loadReadings.last.ballastMoment >= double.parse(macroChangeControllerSubLoopValue["T"][2].text)) {
+          if (macroCurrentValues["T"] >= double.parse(macroChangeControllerSubLoopValue["T"][2].text)) {
             _subLoopTimer.cancel();
             macrosDone+=1;
-            updateLab();
-            if (chosenTask.loadReadings.last.powerFrequency >= double.parse(macroChangeControllerValue["f"][2].text))
+            if (macroCurrentValues["T"] >= double.parse(macroChangeControllerValue["f"][2].text))
                 _stopMacro();
             else
-              Future.delayed(Duration(seconds: int.parse(macroChangeControllerTime.text)), () {       
+              Future.delayed(Duration(seconds: int.parse(macroChangeControllerTime.text)), () {
                 startSubLoop();
             });
           }
         });
-      }
     });
   }
 
   void _stopMacro() {
     _timer?.cancel();
+    _macroDuration?.cancel();
     isMacroRunning = false;
   }
 
@@ -320,109 +317,93 @@ class _NewLabViewState extends State<NewLabView> {
       case EngineState.load:
         if (macroChangeTextCheckBox["f"]) {
           macrosDone += 1;
-          bool singleMacroDone = false;
           if (macroChangeControllerValue["f"].every((x) => x != null) && macroChangeControllerValue["f"].every((x) => x.value.text != ""))
             setState(() {
-              if ((macroCurrentValues["f"] + double.parse(macroChangeControllerValue["f"][1].text)) >
-                  double.parse(macroChangeControllerValue["f"][2].value.text)){
+              if ((macroCurrentValues["f"] + double.parse(macroChangeControllerValue["f"][1].text)) > double.parse(macroChangeControllerValue["f"][2].value.text)){
                     ApiClient().setValue(
-                      engineState: EngineState.load, 
-                      chosenTask: chosenTask, 
+                      engineState: EngineState.load,
                       value: {"f" : double.parse(macroChangeControllerValue["f"][2].text)}).then((v){
-                      setState(() {
-                        singleMacroDone = v;
-                        });
+                      if(v)
+                        ToastUtils.showToast("Wykonano makro, ustawiono f = ${double.parse(macroChangeControllerValue["f"][2].text)}");
+                      else
+                        ToastUtils.showToast("Nie wykonano makro, nie ustawiono f = ${double.parse(macroChangeControllerValue["f"][2].text)}");;
                       });
                   }
               else{
                 macroCurrentValues["f"]+=double.parse(macroChangeControllerValue["f"][1].text);
                 ApiClient().setValue(
-                  engineState: EngineState.load, 
-                  chosenTask: chosenTask, 
+                  engineState: EngineState.load,
                   value: {"f" : macroCurrentValues["f"]}).then((v){
-                      setState(() {
-                        singleMacroDone = v;
-                      });
-                    });
+                  if(v)
+                    ToastUtils.showToast("Wykonano makro, ustawiono f = ${macroCurrentValues["f"]}");
+                  else
+                    ToastUtils.showToast("Nie wykonano makro, nie ustawiono f = ${macroCurrentValues["f"]}");
+                  });
               }
               if (macroCurrentValues["f"] >= double.parse(macroChangeControllerValue["f"][2].value.text))
                 _stopMacro();
             });
-          if(singleMacroDone)
-            ToastUtils.showToast("Wykonano makro, ustawiono f = ${chosenTask.idleReadings.last.powerFrequency}");
-          else
-            ToastUtils.showToast("Nie wykonano makro, nie ustawiono f = ${chosenTask.idleReadings.last.powerFrequency}");
 
         } else if(macroChangeTextCheckBox["T"]) {
             macrosDone += 1;
-            bool singleMacroDone = false;
             if (macroChangeControllerValue["T"].every((x) => x != null) && macroChangeControllerValue["T"].every((x) => x.value.text != ""))
               setState(() {
-                if ((macroCurrentValues["T"] + double.parse(macroChangeControllerValue["T"][1].text)) >
-                    double.parse(macroChangeControllerValue["T"][2].value.text))
+                if ((macroCurrentValues["T"] + double.parse(macroChangeControllerValue["T"][1].text)) > double.parse(macroChangeControllerValue["T"][2].value.text))
                   ApiClient().setValue(
-                      engineState: EngineState.load, 
-                      chosenTask: chosenTask, 
+                      engineState: EngineState.load,
                       value: {"T" : double.parse(macroChangeControllerValue["T"][2].text)}).then((v){
-                      setState(() {
-                        singleMacroDone = v;
-                        });
+                    if(v)
+                      ToastUtils.showToast("Wykonano makro, ustawiono T = ${macroCurrentValues["T"]}");
+                    else
+                      ToastUtils.showToast("Nie wykonano makro, nie ustawiono T = ${macroCurrentValues["T"]}");
                       });
                 else {
                   macroCurrentValues["T"]+=double.parse(macroChangeControllerValue["T"][1].text);
                   ApiClient().setValue(
                       engineState: EngineState.load,
-                      chosenTask: chosenTask,
                       value: {"T": macroCurrentValues["T"]}).then((v) {
-                    setState(() {
-                      singleMacroDone = v;
-                    });
+                    if(v)
+                      ToastUtils.showToast("Wykonano makro, ustawiono T = ${macroCurrentValues["T"]}");
+                    else
+                      ToastUtils.showToast("Nie wykonano makro, nie ustawiono T = ${macroCurrentValues["T"]}");
                   });
                 }
                 if (macroCurrentValues["T"] >= double.parse(macroChangeControllerValue["T"][2].value.text))
                   _stopMacro();
               });
-            if(singleMacroDone)
-              ToastUtils.showToast("Wykonano makro, ustawiono T = ${macroCurrentValues["T"]}");
-            else
-              ToastUtils.showToast("Nie wykonano makro, nie ustawiono T = ${macroCurrentValues["T"]}");
         }
         break;
       case EngineState.idle:
           macrosDone += 1;
-          bool singleMacroDone = false;
           print("last value 1 = ${macroCurrentValues["f"]}");
           if (macroChangeControllerValue["f"].every((x) => x != null) && macroChangeControllerValue["f"].every((x) => x.value.text != ""))
-              if ((macroCurrentValues["f"] + double.parse(macroChangeControllerValue["f"][1].text)) >
-                  double.parse(macroChangeControllerValue["f"][2].value.text))
+              if ((macroCurrentValues["f"] + double.parse(macroChangeControllerValue["f"][1].text)) > double.parse(macroChangeControllerValue["f"][2].value.text)) {
                 ApiClient().setValue(
-                      engineState: EngineState.idle, 
-                      chosenTask: chosenTask, 
-                      value: {"f" : double.parse(macroChangeControllerValue["f"][2].text)}).then((v){
-                      setState(() {
-                        singleMacroDone = v;
-                        });
-                      });
-              else{
-                macroCurrentValues["f"] += double.parse(macroChangeControllerValue["f"][1].text);
+                    engineState: EngineState.idle,
+                    value: {
+                      "f": double.parse(macroChangeControllerValue["f"][2].text)
+                    }).then((v) {
+                  if(v)
+                    ToastUtils.showToast("Wykonano makro, ustawiono f = ${macroCurrentValues["f"]}");
+                  else
+                    ToastUtils.showToast("Nie wykonano makro, nie ustawiono f = ${macroCurrentValues["f"]}");
+                });
+              }
+              else {
+                macroCurrentValues["f"] =  macroCurrentValues["f"] + double.parse(macroChangeControllerValue["f"][1].text);
                 ApiClient().setValue(
-                      engineState: EngineState.idle, 
-                      chosenTask: chosenTask, 
+                      engineState: EngineState.idle,
                       value: {"f" : macroCurrentValues["f"]}).then((v){
-                      setState(() {
-                        singleMacroDone = v;
-                        });
+                  if(v)
+                    ToastUtils.showToast("Wykonano makro, ustawiono f = ${macroCurrentValues["f"]}");
+                  else
+                    ToastUtils.showToast("Nie wykonano makro, nie ustawiono f = ${macroCurrentValues["f"]}");
                       });
               }
               if (macroCurrentValues["f"] >= double.parse(macroChangeControllerValue["f"][2].value.text))
                 _stopMacro();
-              if(singleMacroDone)
-                ToastUtils.showToast("Wykonano makro, ustawiono f = ${chosenTask.idleReadings.last.powerFrequency}");
-              else
-                ToastUtils.showToast("Nie wykonano makro, nie ustawiono f = ${chosenTask.idleReadings.last.powerFrequency}");
         break;
     }
-    updateLab();
   }
 
   //Pobieranie danych
@@ -430,10 +411,9 @@ class _NewLabViewState extends State<NewLabView> {
   bool isFetchingPeriodically = false;
   
   void _startFetchingData() {
-    _fetchTimer = Timer.periodic(Duration(seconds: 1), (t) {
+    _fetchTimer = Timer.periodic(Duration(milliseconds: int.parse(fetchDataIntervalController.text)), (t) {
       setState(() {
-        if (t.tick % int.parse(fetchDataIntervalController.text) == 0)
-          fetchData();
+        fetchData();
       });
     });
     setState(() {
@@ -460,7 +440,6 @@ class _NewLabViewState extends State<NewLabView> {
             break;
         }
         ToastUtils.showToast("Pobrano dane");
-        //updateLab();
       });
     });
   }
@@ -575,7 +554,7 @@ class _NewLabViewState extends State<NewLabView> {
                                         key: _fetchDataIntervalFormKey,
                                         child: customTextField(
                                             showButton: false,
-                                            suffixText: "s",
+                                            suffixText: "ms",
                                             labelText: "Interwał",
                                             biggerThantZeroValidation: true,
                                             controller: fetchDataIntervalController,
@@ -809,7 +788,6 @@ class _NewLabViewState extends State<NewLabView> {
                             setState(() {
                               if(statValueChangeTextCheckBox["f"]){
                                  ApiClient().setValue(
-                                      chosenTask: chosenTask,
                                       engineState: engineState,
                                       value: {"f" : double.parse(statValueChangeTextController["f"].value.text)}
                                     ).then((value){
@@ -824,7 +802,6 @@ class _NewLabViewState extends State<NewLabView> {
                               }
                               if(statValueChangeTextCheckBox["T"] && isLoadEngineState()){
                                 ApiClient().setValue(
-                                      chosenTask: chosenTask,
                                       engineState: engineState,
                                       value: {"T" : double.parse(statValueChangeTextController["T"].value.text)}
                                     ).then((value){
@@ -978,7 +955,7 @@ class _NewLabViewState extends State<NewLabView> {
                           key: _macroTimeSubLoopKey,
                           child: customTextField(
                               showButton: false,
-                              suffixText: "s",
+                              suffixText: "ms",
                               labelText: "Częstotliwość podrzędnej pętli",
                               biggerThantZeroValidation: true,
                               controller: macroSubLoopChangeControllerTime,
@@ -1017,7 +994,7 @@ class _NewLabViewState extends State<NewLabView> {
                   key: _macroTimeKey,
                   child: customTextField(
                       showButton: false,
-                      suffixText: "s",
+                      suffixText: "ms",
                       labelText: "Częstotliwość makra",
                       biggerThantZeroValidation: true,
                       controller: macroChangeControllerTime,
@@ -1095,11 +1072,11 @@ class _NewLabViewState extends State<NewLabView> {
               children: [
                 Expanded(
                   child: TextField(
-                    controller: TextEditingController(text: Duration(seconds: _timer?.tick ?? 0).toString().split('.').first.padLeft(8, "0")),
+                    controller: TextEditingController(text: Duration(milliseconds: _macroDuration?.tick ?? 0).toString().split('.')[0]),
                     readOnly: true,
                     decoration: InputDecoration(
                         border: OutlineInputBorder(),
-                        labelText: "Czas wykonywania makra (HH:mm:ss)"
+                        labelText: "Czas wykonywania makra"
                     ),
                   ),
                 ),
@@ -1168,7 +1145,7 @@ class _NewLabViewState extends State<NewLabView> {
                   child: Row(
                     children: [
                       SelectableText("Laboratorium: ", style: textTheme.subtitle1),
-                      Expanded(child: SelectableText(lab.name, style: textTheme.subtitle1.copyWith(fontWeight: FontWeight.bold)))
+                      Expanded(child: SelectableText(utf8.decode(lab.name.codeUnits), style: textTheme.subtitle1.copyWith(fontWeight: FontWeight.bold)))
                     ],
                   ),
                 ),
@@ -1196,10 +1173,10 @@ class _NewLabViewState extends State<NewLabView> {
                                               return DropdownMenuItem(
                                                 child: e.hasEnded ? Column(
                                                   children: [
-                                                    Text(e.name, style: textTheme.subtitle1.copyWith(fontWeight: FontWeight.bold)),
+                                                    Text(utf8.decode(e.name.codeUnits), style: textTheme.subtitle1.copyWith(fontWeight: FontWeight.bold)),
                                                     Text("Zakończone", style: textTheme.caption.copyWith(fontStyle: FontStyle.italic, color: Colors.redAccent))
                                                   ],
-                                                ) : Text(e.name, style: textTheme.subtitle1.copyWith(fontWeight: FontWeight.bold)),
+                                                ) : Text(utf8.decode(e.name.codeUnits), style: textTheme.subtitle1.copyWith(fontWeight: FontWeight.bold)),
                                                 value: e,
                                               );
                                             }).toList(),
@@ -1212,7 +1189,7 @@ class _NewLabViewState extends State<NewLabView> {
                                                       } else{
                                                   if (chosenTask==null || value.id != chosenTask.id) {
                                                     chosenTask = value;
-                                                    ToastUtils.showToast("Wybrane ćwiczenie: ${chosenTask.name} ${chosenTask.hasEnded}");
+                                                    ToastUtils.showToast("Wybrane ćwiczenie: ${utf8.decode(chosenTask.name.codeUnits)} ${chosenTask.hasEnded}");
                                                     setState(() {
                                                       //currentTaskEnded = false;
                                                     });
@@ -1619,7 +1596,7 @@ class _NewLabViewState extends State<NewLabView> {
             chosenTask = lab.tasks.last;
             _stopMacro();
             _stopFetchingData();
-            ToastUtils.showToast("Wybrane ćwiczenie: ${chosenTask.name}");
+            ToastUtils.showToast("Wybrane ćwiczenie: ${utf8.decode(chosenTask.name.codeUnits)}");
           }, noFunction: () {});
         }
       });
