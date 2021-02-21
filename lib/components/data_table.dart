@@ -201,6 +201,10 @@ class DTS extends DataTableSource {
               list[index]?.statorCurrent?.toStringAsFixed(3) ?? "-")),
           DataCell(Text(
               list[index]?.rotorCurrent?.toStringAsFixed(3) ?? "-")),
+          DataCell(Text(
+              list[index]?.apparentPower?.toStringAsFixed(3) ?? "-")),
+          DataCell(Text(
+              list[index]?.activePower?.toStringAsFixed(3) ?? "-")),
           if (list is List<LoadReading>)
             DataCell(Text(list[index]?.ballastMoment?.toStringAsFixed(3) ?? "-"))
         ],
@@ -209,6 +213,8 @@ class DTS extends DataTableSource {
       return DataRow(
           key: Key(Random().nextInt(double.maxFinite.toInt()).toString()),
           cells: [
+            DataCell(Container()),
+            DataCell(Container()),
             DataCell(Container()),
             DataCell(Container()),
             DataCell(Container()),

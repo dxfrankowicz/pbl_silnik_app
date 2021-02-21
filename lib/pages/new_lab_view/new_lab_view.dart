@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -59,7 +60,7 @@ class _NewLabViewState extends State<NewLabView> {
   final _changeValuesCardKey = GlobalKey<FormState>();
 
   //fetch data type
-  TextEditingController fetchDataIntervalController = TextEditingController(text: 1.toString());
+  TextEditingController fetchDataIntervalController = TextEditingController(text: 1000.toString());
   final _fetchDataIntervalFormKey = GlobalKey<FormState>();
 
   Timer _labDuration;
@@ -95,6 +96,7 @@ class _NewLabViewState extends State<NewLabView> {
 
   //chart
   TextEditingController numberOfReadingsOnChart = TextEditingController(text: 50.toString());
+  bool onOff;
 
   @override
   void dispose() {
@@ -112,6 +114,7 @@ class _NewLabViewState extends State<NewLabView> {
 
   @override
   void initState() {
+    onOff = false;
     code = algorithms.keys.first;
     lab.tasks = [];
 
@@ -133,8 +136,8 @@ class _NewLabViewState extends State<NewLabView> {
       statValueChangeTextCheckBox[element.symbol] = false;
       macroChangeTextCheckBox[element.symbol] = false;
     });
-    macroChangeControllerTime.text = 10.toString();
-    macroSubLoopChangeControllerTime.text=10.toString();
+    macroChangeControllerTime.text = 1000.toString();
+    macroSubLoopChangeControllerTime.text= 1000.toString();
 
     super.initState();
 
@@ -226,6 +229,7 @@ class _NewLabViewState extends State<NewLabView> {
 
   Timer _subLoopTimer;
   void startSubLoop() {
+    print("START SUB LOOP, macrosDone: $macrosDone");
     macroCurrentValues["T"] = double.parse(macroChangeControllerSubLoopValue["T"][0].text);
     macroCurrentValues["f"] = macrosDone==0
         ? double.parse(macroChangeControllerValue["f"][0].text)
@@ -283,25 +287,23 @@ class _NewLabViewState extends State<NewLabView> {
                   "f": macroCurrentValues["f"]
                 }).then((value) {
               if (value) {
+
                 ToastUtils.showToast(
                     "Wykonano podrzędną pętlę makra T = ${macroCurrentValues["T"]} ""dla f = ${macroCurrentValues["f"]}");
               }
               else {
                 ToastUtils.showToast(
-                    "Nie wykonano podrzędnek pętli makra T = ${macroCurrentValues["T"]} ""dla f = ${macroCurrentValues["f"]}");
+                    "Nie wykonano podrzędnej pętli makra T = ${macroCurrentValues["T"]} ""dla f = ${macroCurrentValues["f"]}");
               }
-              setState(() {
-
-              });
             });
           }
           if (macroCurrentValues["T"] >= double.parse(macroChangeControllerSubLoopValue["T"][2].text)) {
-            _subLoopTimer.cancel();
             macrosDone+=1;
-            if (macroCurrentValues["T"] >= double.parse(macroChangeControllerValue["f"][2].text))
+            _subLoopTimer.cancel();
+            if (macroCurrentValues["f"] >= double.parse(macroChangeControllerValue["f"][2].text))
                 _stopMacro();
             else
-              Future.delayed(Duration(seconds: int.parse(macroChangeControllerTime.text)), () {
+              Future.delayed(Duration(milliseconds: int.parse(macroChangeControllerTime.text)), () {
                 startSubLoop();
             });
           }
@@ -415,9 +417,7 @@ class _NewLabViewState extends State<NewLabView> {
   
   void _startFetchingData() {
     _fetchTimer = Timer.periodic(Duration(milliseconds: int.parse(fetchDataIntervalController.text)), (t) {
-      setState(() {
-        fetchData();
-      });
+      fetchData();
     });
     setState(() {
       isFetchingPeriodically = true;
@@ -433,17 +433,22 @@ class _NewLabViewState extends State<NewLabView> {
 
   void fetchData() {
     ApiClient().fetchData(engineState: engineState, chosenTask: chosenTask).then((value){
-      setState(() {
-        switch (engineState) {
-          case EngineState.load:
-            chosenTask.loadReadings.add(value);
-            break;
-          case EngineState.idle:
-            chosenTask.idleReadings.add(value);
-            break;
-        }
-        ToastUtils.showToast("Pobrano dane");
-      });
+      if (value != null) {
+        setState(() {
+          switch (engineState) {
+            case EngineState.load:
+              chosenTask.loadReadings.add(value);
+              break;
+            case EngineState.idle:
+              chosenTask.idleReadings.add(value);
+              break;
+          }
+          ToastUtils.showToast("Pobrano dane");
+        });
+      }
+      else ToastUtils.showToast("Nie pobrano danych");
+    }).catchError((onError){
+      ToastUtils.showToast("Nie pobrano danych");
     });
   }
   //Koniec sekcji pobierania danych
@@ -1283,6 +1288,12 @@ class _NewLabViewState extends State<NewLabView> {
         statValue(Lists.getStatValue("Iw"), (isIdleEngineState()
             ? chosenTask.idleReadings.isEmpty ? null : chosenTask?.idleReadings?.last?.rotorCurrent
             : chosenTask.loadReadings.isEmpty ? null : chosenTask?.loadReadings?.last?.rotorCurrent)),
+        statValue(Lists.getStatValue("S"), (isIdleEngineState()
+            ? chosenTask.idleReadings.isEmpty ? null : chosenTask?.idleReadings?.last?.apparentPower
+            : chosenTask.loadReadings.isEmpty ? null : chosenTask?.loadReadings?.last?.apparentPower)),
+        statValue(Lists.getStatValue("P cz"), (isIdleEngineState()
+            ? chosenTask.idleReadings.isEmpty ? null : chosenTask?.idleReadings?.last?.activePower
+            : chosenTask.loadReadings.isEmpty ? null : chosenTask?.loadReadings?.last?.activePower)),
         if(isLoadEngineState())
           statValue(Lists.getStatValue("T"), chosenTask.loadReadings.isEmpty ? null : chosenTask?.loadReadings?.last?.ballastMoment)
       ],
@@ -1376,7 +1387,7 @@ class _NewLabViewState extends State<NewLabView> {
                         data: (isIdleEngineState() ? chosenTask.idleReadings : chosenTask.loadReadings).map((dynamic x){
                           return selectedYAxis == "T" ? x.ballastMoment : x.toJson()["${Lists.statsList.firstWhere((e) => e.symbol==selectedYAxis).readingJsonKey}"];
                         }).toList().getRange(length - int.parse(numberOfReadingsOnChart?.text!=""
-                            ? numberOfReadingsOnChart?.text ?? "0" : "0") <= 0 ? 0 
+                            ? numberOfReadingsOnChart?.text ?? "0" : "0") <= 0 ? 0
                             : length - int.parse(numberOfReadingsOnChart?.text!="" ? numberOfReadingsOnChart?.text ?? "0" : "0"), length).toList(),
                         backgroundColor: Colors.blue.withOpacity(0.4),
                     )
@@ -1448,7 +1459,41 @@ class _NewLabViewState extends State<NewLabView> {
                       Expanded(
                           flex: 3,
                           child: Column(children: [
-                            engineStateCard(),
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                    child: Card(
+                                      child: Center(
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(8.0),
+                                          child: new TextButton.icon(
+                                              onPressed: (){
+                                                DialogUtils.showYesNoDialog(context, "Czy na pewno chcesz zatrzymać awaryjnie silnik?",
+                                                    yesFunction: () {
+                                                      ApiClient().emergencyBreaking().then((value){
+                                                        if(value)
+                                                          ToastUtils.showToast("Silnik został zatrzymany!");
+                                                        else
+                                                          ToastUtils.showToast("Silnik NIE został zatrzymany!");
+                                                      }).catchError((onError){
+                                                        ToastUtils.showToast("Błąd! Silnik NIE został zatrzymany!\n$onError");
+                                                      });
+                                                    }, noFunction: () {});
+                                              },
+                                              icon: Icon(Icons.stop,
+                                                  color: Colors.redAccent),
+                                              label: Expanded(
+                                                child: Text(
+                                                  "Awaryjne zatrzymanie".toUpperCase(), style: textTheme.subtitle2.copyWith(color: Colors.redAccent,
+                                                    fontWeight: FontWeight.bold),),
+                                              )),
+                                        ),
+                                      ),
+                                    )),
+                                      Expanded(flex: 3 ,child:  engineStateCard())
+                              ],
+                            ),
                             Row(
                               children: [
                                 Expanded(

@@ -13,6 +13,8 @@ class Lists{
     StatValue(symbol: "n", desc: "Prędkość obrotowa", unit: "rpm", precision: 0, readingJsonKey: "rotationalSpeed"),
     StatValue(symbol: "Is", desc: "Prąd w uzwojeniu stojana", unit: "A", readingJsonKey: "statorCurrent"),
     StatValue(symbol: "Iw", desc: "Prąd w uzwojeniu wirnika", unit: "A", readingJsonKey: "rotorCurrent"),
+    StatValue(symbol: "S", desc: "Moc pozorna", unit: "VA", readingJsonKey: "apparentPower"),
+    StatValue(symbol: "P cz", desc: "Moc czynna", unit: "W", readingJsonKey: "activePower"),
     StatValue(symbol: "T", desc: "Moment obciążenia", unit: "Nm", loadEngineStateReading: true, readingJsonKey: "torque"),
   ];
 

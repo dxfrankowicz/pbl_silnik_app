@@ -1,3 +1,4 @@
+import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:silnik_app/api/models/stat_value.dart';
 
@@ -13,7 +14,7 @@ class StatCard extends StatelessWidget {
         Expanded(
           child: Card(
             child: Padding(
-              padding: const EdgeInsets.all(15.0),
+              padding: const EdgeInsets.all(8.0),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisAlignment: MainAxisAlignment.start,
@@ -30,7 +31,7 @@ class StatCard extends StatelessWidget {
                           textAlign: TextAlign.center,
                           decoration: InputDecoration(
                               suffix:
-                                  Container(width: 40, child: Text(stat.unit)),
+                                  Container(width: 40, child: AutoSizeText(stat.unit, maxLines: 1)),
                               isDense: true,
                               prefix: Container(
                                   width: 40, child: Text(stat.symbol)),

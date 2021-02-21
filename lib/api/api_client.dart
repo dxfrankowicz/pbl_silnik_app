@@ -99,11 +99,11 @@ class ApiClient {
     });
   }
 
-  Future<bool> setValue({EngineState engineState, Task chosenTask, Map<String, double> value}) async {
-    Task _chosenTask = chosenTask;
-    Random r = new Random();
+  // ignore: missing_return
+  Future<bool> setValue({EngineState engineState, Map<String, double> value}) async {
     switch (engineState) {
       case EngineState.load:
+        print("SET VALUE: ${value.toString()}");
         return baseApiClient.post("/measurement/loadParams/${value["f"]}/${value["T"]}").then((rsp) {
           return true;
         }).catchError((e){
@@ -111,6 +111,7 @@ class ApiClient {
         });
         break;
       case EngineState.idle:
+        print("SET VALUE: ${value.toString()}");
         return baseApiClient.post("/measurement/idleParams/${value["f"]}").then((rsp) {
           return true;
         }).catchError((e){
@@ -118,7 +119,7 @@ class ApiClient {
         });
         break;
     }
-    print("Ustawaiono dane ${value.toString()}");
+    logger.info("Ustawaiono dane ${value.toString()}");
   }
 
   Future<bool> endLab() async {
@@ -131,6 +132,14 @@ class ApiClient {
 
   Future<bool> endTask() async {
     return baseApiClient.post("/task/endTask").then((rsp) {
+      return true;
+    }).catchError((e){
+      return false;
+    });
+  }
+
+  Future<bool> emergencyBreaking() async {
+    return baseApiClient.post("/measurement/emergencyBreaking").then((rsp) {
       return true;
     }).catchError((e){
       return false;

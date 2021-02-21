@@ -15,6 +15,8 @@ IdleReading _$IdleReadingFromJson(Map<String, dynamic> json) {
     ..rotorCurrent = (json['rotorCurrent'] as num)?.toDouble()
     ..rotationalSpeed = (json['rotationalSpeed'] as num)?.toDouble()
     ..powerFrequency = (json['powerFrequency'] as num)?.toDouble()
+    ..activePower = (json['activePower'] as num)?.toDouble()
+    ..apparentPower = (json['apparentPower'] as num)?.toDouble()
     ..timeStamp = json['timeStamp'] == null
         ? null
         : DateTime.parse(json['timeStamp'] as String)
@@ -33,6 +35,8 @@ Map<String, dynamic> _$IdleReadingToJson(IdleReading instance) =>
       'rotorCurrent': instance.rotorCurrent,
       'rotationalSpeed': instance.rotationalSpeed,
       'powerFrequency': instance.powerFrequency,
+      'activePower': instance.activePower,
+      'apparentPower': instance.apparentPower,
       'timeStamp': instance.timeStamp?.toIso8601String(),
       'task': instance.task,
       'selected': instance.selected,

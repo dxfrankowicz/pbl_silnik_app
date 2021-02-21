@@ -11,6 +11,8 @@ class Reading {
   double rotorCurrent;
   double rotationalSpeed;
   double powerFrequency;
+  double activePower;
+  double apparentPower;
   DateTime timeStamp;
   Task task;
 
@@ -23,6 +25,8 @@ class Reading {
       this.rotationalSpeed,
       this.powerFrequency,
       this.timeStamp,
+      this.activePower,
+      this.apparentPower,
       this.task});
 
   factory Reading.fromJson(Map<String, dynamic> json) => _$ReadingFromJson(json);

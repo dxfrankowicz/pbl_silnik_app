@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_web_chartjs/chartjs.models.dart';
@@ -211,7 +213,7 @@ class _DoneLabViewState extends State<DoneLabView> {
                                               isExpanded: true,
                                               items: tasks.map((e) {
                                                 return DropdownMenuItem(
-                                                  child: Text(e.name, style: textTheme.subtitle1.copyWith(fontWeight: FontWeight.bold)),
+                                                  child: Text(utf8.decode(e.name.codeUnits), style: textTheme.subtitle1.copyWith(fontWeight: FontWeight.bold)),
                                                   value: e,
                                                 );
                                               }).toList(),
